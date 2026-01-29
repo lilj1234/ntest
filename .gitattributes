@@ -1,2 +1,1 @@
-*.sql filter=lfs diff=lfs merge=lfs -text
 test_platform.sql filter=lfs diff=lfs merge=lfs -text
