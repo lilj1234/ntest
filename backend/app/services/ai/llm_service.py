@@ -237,13 +237,33 @@ class LLMService:
             # 添加自定义参数
             payload.update(kwargs)
             
+            logger.info(f"发送请求到自定义LLM API: {self.config.get('base_url')}")
+            logger.info(f"Model: {model}, Temperature: {temperature}")
+            
             response = await self.client.post(
                 self.config.get("chat_endpoint", "/chat/completions"),
                 json=payload
             )
-            response.raise_for_status()
+            
+            # 检查HTTP状态码
+            if response.status_code != 200:
+                error_text = response.text
+                logger.error(f"LLM API返回错误状态码: {response.status_code}, 响应: {error_text}")
+                raise Exception(f"LLM API错误 (HTTP {response.status_code}): {error_text}")
             
             result = response.json()
+            
+            # 检查响应中是否包含错误信息
+            if isinstance(result, dict):
+                if "status" in result and result["status"] in ["434", "400", "500", 434, 400, 500]:
+                    error_msg = result.get("msg", result.get("message", "未知错误"))
+                    logger.error(f"LLM API返回业务错误: status={result['status']}, msg={error_msg}")
+                    raise Exception(f"LLM API错误: {error_msg}")
+                
+                if "error" in result:
+                    error_msg = result.get("error", {}).get("message", str(result["error"]))
+                    logger.error(f"LLM API返回错误: {error_msg}")
+                    raise Exception(f"LLM API错误: {error_msg}")
             
             # 尝试解析不同的响应格式
             if "choices" in result:
@@ -255,13 +275,15 @@ class LLMService:
                 content = result["response"]
                 usage = {}
             else:
+                logger.warning(f"未知的响应格式: {result}")
                 content = str(result)
                 usage = {}
             
+            logger.info(f"LLM响应长度: {len(content)} 字符")
             return LLMResponse(content=content, usage=usage, model=model)
             
         except Exception as e:
-            logger.error(f"Custom chat completion failed: {e}")
+            logger.error(f"Custom chat completion failed: {e}", exc_info=True)
             raise
     
     async def generate_text(
@@ -522,6 +544,86 @@ async def get_llm_service(config_name: str = "default") -> LLMService:
             raise ValueError(f"LLM服务配置失败: {e}")
     
     return _llm_services[config_name]
+
+
+async def get_llm_service_by_id(llm_config_id: int) -> LLMService:
+    """通过配置ID获取LLM服务实例"""
+    print(f"=" * 80)
+    print(f"DEBUG: get_llm_service_by_id 被调用！llm_config_id = {llm_config_id}")
+    print(f"=" * 80)
+    
+    try:
+        from app.models.aitestrebort.project import aitestrebortLLMConfig
+        
+        # 获取指定的LLM配置
+        llm_config = await aitestrebortLLMConfig.get(id=llm_config_id)
+        
+        if not llm_config:
+            raise ValueError(f"没有找到ID为 {llm_config_id} 的LLM配置")
+        
+        # 清理 API Key（移除可能的 Bearer 前缀）
+        api_key = llm_config.api_key
+        if api_key and api_key.startswith("Bearer "):
+            api_key = api_key[7:].strip()
+            logger.warning(f"API密钥包含'Bearer '前缀，已自动移除")
+        
+        # 清理并规范化 base_url
+        base_url = llm_config.base_url
+        original_base_url = base_url
+        
+        if base_url:
+            # 移除常见的端点路径
+            endpoints_to_remove = ['/chat/completions', '/v1/chat/completions', '/completions']
+            for endpoint in endpoints_to_remove:
+                if base_url.endswith(endpoint):
+                    base_url = base_url[:-len(endpoint)]
+                    logger.warning(f"base_url包含端点路径'{endpoint}'，已自动移除")
+                    break
+            
+            # 确保base_url以/v1结尾（OpenAI兼容API通常需要）
+            if not base_url.endswith('/v1') and not base_url.endswith('/compatible-mode/v1'):
+                base_url = base_url.rstrip('/') + '/v1'
+                logger.info(f"base_url已自动添加/v1路径: {original_base_url} -> {base_url}")
+        
+        print(f"DEBUG: 获取到LLM配置:")
+        print(f"  ID: {llm_config.id}")
+        print(f"  Name: {llm_config.config_name}")
+        print(f"  Original Base URL: {original_base_url}")
+        print(f"  Processed Base URL: {base_url}")
+        print(f"  Model: {llm_config.name}")
+        print(f"  API Key: {api_key[:30]}..." if len(api_key) > 30 else f"  API Key: {api_key}")
+        
+        logger.info(f"获取到LLM配置: ID={llm_config.id}, name={llm_config.config_name}")
+        logger.info(f"Base URL: {original_base_url} -> {base_url}")
+        logger.info(f"Model: {llm_config.name}")
+        logger.info(f"API Key: {api_key[:20]}..." if len(api_key) > 20 else f"API Key: {api_key}")
+        
+        # 构建配置
+        config = {
+            "provider": LLMProvider.CUSTOM,
+            "base_url": base_url,
+            "model": llm_config.name,
+            "api_key": api_key,
+            "timeout": 60.0,
+            "headers": {
+                "Authorization": f"Bearer {api_key}"
+            }
+        }
+        
+        logger.info(f"创建LLM服务实例，配置: base_url={base_url}, model={llm_config.name}")
+        
+        # 创建新的服务实例（不缓存，因为可能是临时使用）
+        service = LLMService(
+            provider=LLMProvider.CUSTOM,
+            config=config
+        )
+        
+        logger.info(f"✓ 使用指定LLM配置: {llm_config.config_name} ({llm_config.name})")
+        return service
+        
+    except Exception as e:
+        logger.error(f"获取LLM配置失败: {e}", exc_info=True)
+        raise ValueError(f"获取LLM配置失败: {e}")
 
 
 async def cleanup_llm_services():

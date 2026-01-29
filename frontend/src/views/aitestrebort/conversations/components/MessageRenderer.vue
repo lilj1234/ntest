@@ -2,52 +2,92 @@
   <div class="message-content-renderer">
     <!-- 流式输入状态 -->
     <div v-if="isStreaming" class="streaming-content">
-      <div v-if="content === '正在思考中...'" class="thinking-dots">
-        <span class="dot"></span>
-        <span class="dot"></span>
-        <span class="dot"></span>
+      <!-- 只有内容为空且loading时才显示打字指示器  -->
+      <div v-if="loading && !content" class="typing-indicator">
+        <div class="typing-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
       </div>
       <div v-else class="streaming-text">
-        <span v-html="getRenderedContent(content)"></span>
-        <span class="streaming-cursor">
-          <el-icon><Loading /></el-icon>
-        </span>
+        <!-- 直接显示内容-->
+        <div v-html="formatMessage(content)"></div>
       </div>
     </div>
     
     <!-- 完整内容渲染 -->
     <div v-else class="message-content-wrapper">
-      <div v-html="getRenderedContent(content)"></div>
+      <div v-html="formatMessage(content)"></div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, nextTick } from 'vue'
-import { Loading } from '@element-plus/icons-vue'
+import MarkdownIt from 'markdown-it'
+import markdownItHighlightjs from 'markdown-it-highlightjs'
+import hljs from 'highlight.js'
+import 'highlight.js/styles/atom-one-light.css'
 
 interface Props {
   content: string
   isStreaming?: boolean
+  loading?: boolean
   role?: 'user' | 'assistant' | 'system'
 }
 
 const props = withDefaults(defineProps<Props>(), {
   isStreaming: false,
+  loading: false,
   role: 'assistant'
 })
 
-// 内容缓存
-const contentCache = new Map<string, string>()
+// 创建MarkdownIt实例并配置插件
+const md: MarkdownIt = new MarkdownIt({
+  html: true,
+  linkify: true,
+  typographer: true,
+  breaks: true,
+  highlight(str: string, lang: string): string {
+    if (lang && hljs.getLanguage(lang)) {
+      try {
+        return `<pre class="hljs"><code>${hljs.highlight(str, { language: lang, ignoreIllegals: true }).value}</code></pre>`
+      } catch {
+        // 忽略错误，使用默认渲染
+      }
+    }
+    return `<pre class="hljs"><code>${md.utils.escapeHtml(str)}</code></pre>`
+  },
+}).use(markdownItHighlightjs)
 
-// 动态加载 highlight.js
-let hljs: any = null
+// 配置链接在新窗口打开
+const defaultRender =
+  md.renderer.rules.link_open ||
+  function (tokens: any[], idx: number, options: any, env: any, self: any) {
+    return self.renderToken(tokens, idx, options, env, self)
+  }
 
-onMounted(async () => {
-  try {
-    // 动态导入 highlight.js
-    const hljsModule = await import('highlight.js/lib/core')
-    hljs = hljsModule.default
+md.renderer.rules.link_open = function (
+  tokens: any[],
+  idx: number,
+  options: any,
+  env: any,
+  self: any
+) {
+  // 添加target="_blank"和rel="noopener noreferrer"属性
+  tokens[idx].attrPush(['target', '_blank'])
+  tokens[idx].attrPush(['rel', 'noopener noreferrer'])
+  return defaultRender(tokens, idx, options, env, self)
+}
+
+// 格式化消息内容
+const formatMessage = (content: string) => {
+  if (!content) return ''
+  
+  // 使用markdown-it进行完整的Markdown渲染
+  return md.render(content)
+}
+</script>
     
     // 动态导入语言
     const [
@@ -578,42 +618,96 @@ if (typeof window !== 'undefined') {
 
 <style scoped>
 .message-content-renderer {
-  line-height: 1.5; /* 减少行高从1.6到1.5 */
+  line-height: 1.6;
   word-wrap: break-word;
 }
 
 /* 流式内容样式 */
 .streaming-content {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: block;
 }
 
 .streaming-text {
-  flex: 1;
+  position: relative;
+}
+
+/* 思考中动画
+.typing-indicator {
   display: flex;
   align-items: center;
+  padding: 8px 0;
+}
+
+.typing-dots {
+  display: flex;
   gap: 4px;
 }
 
-.streaming-cursor {
-  display: inline-flex;
-  align-items: center;
-  animation: blink 1s infinite;
+.typing-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #409eff;
+  animation: typing 1.4s infinite ease-in-out;
 }
 
-@keyframes blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
+.typing-dots span:nth-child(1) { animation-delay: 0s; }
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-10px);
+    opacity: 1;
+  }
 }
 
-/* 思考中动画 */
-.thinking-dots {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 0;
+/* Markdown内容样式 */
+.message-content-renderer :deep(pre) {
+  background-color: #f6f8fa;
+  border-radius: 6px;
+  padding: 16px;
+  overflow-x: auto;
+  margin: 8px 0;
 }
+
+.message-content-renderer :deep(code) {
+  background-color: #f3f4f6;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: 'Courier New', Consolas, Monaco, monospace;
+  font-size: 0.9em;
+}
+
+.message-content-renderer :deep(blockquote) {
+  border-left: 4px solid #dfe2e5;
+  padding-left: 16px;
+  margin: 16px 0;
+  color: #6a737d;
+}
+
+.message-content-renderer :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+}
+
+.message-content-renderer :deep(th),
+.message-content-renderer :deep(td) {
+  border: 1px solid #dfe2e5;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.message-content-renderer :deep(th) {
+  background-color: #f6f8fa;
+  font-weight: 600;
+}
+</style>
 
 .thinking-dots .dot {
   width: 8px;

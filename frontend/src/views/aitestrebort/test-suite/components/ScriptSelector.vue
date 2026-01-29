@@ -1,8 +1,8 @@
 <template>
   <el-dialog
     :model-value="modelValue"
-    title="选择自动化脚本"
-    width="800px"
+    title="选择 Playwright 脚本"
+    width="900px"
     @update:model-value="$emit('update:modelValue', $event)"
   >
     <div class="script-selector">
@@ -21,16 +21,29 @@
         </el-input>
         
         <el-select
-          v-model="selectedType"
-          placeholder="脚本类型"
+          v-model="selectedModule"
+          placeholder="选择模块"
+          style="width: 150px; margin-left: 12px"
+          clearable
+          @change="handleSearch"
+        >
+          <el-option
+            v-for="module in modules"
+            :key="module.id"
+            :label="module.name"
+            :value="module.id"
+          />
+        </el-select>
+
+        <el-select
+          v-model="selectedStatus"
+          placeholder="脚本状态"
           style="width: 120px; margin-left: 12px"
           clearable
           @change="handleSearch"
         >
-          <el-option label="UI测试" value="UI" />
-          <el-option label="API测试" value="API" />
-          <el-option label="性能测试" value="Performance" />
-          <el-option label="安全测试" value="Security" />
+          <el-option label="激活" value="active" />
+          <el-option label="草稿" value="draft" />
         </el-select>
       </div>
 
@@ -43,27 +56,35 @@
       >
         <el-table-column type="selection" width="55" />
         <el-table-column prop="name" label="脚本名称" min-width="200" />
-        <el-table-column prop="script_type" label="脚本类型" width="100" align="center">
+        <el-table-column prop="test_case_name" label="关联用例" width="150">
           <template #default="{ row }">
-            <el-tag :type="getTypeColor(row.script_type)" size="small">{{ row.script_type }}</el-tag>
+            <el-tag size="small" type="info">{{ row.test_case_name || '未关联' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="language" label="语言" width="100" align="center" />
-        <el-table-column prop="status" label="状态" width="100" align="center">
+        <el-table-column prop="module_name" label="所属模块" width="120">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'active' ? 'success' : 'danger'" size="small">
-              {{ row.status === 'active' ? '启用' : '禁用' }}
+            <el-tag size="small">{{ row.module_name || '未分类' }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="script_type" label="类型" width="140">
+          <template #default="{ row }">
+            <el-tag :type="getTypeColor(row.script_type)" size="small">
+              {{ getTypeLabel(row.script_type) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="last_run" label="最后执行" width="150" align="center">
+        <el-table-column prop="source" label="来源" width="100">
           <template #default="{ row }">
-            {{ row.last_run ? formatDate(row.last_run) : '未执行' }}
+            <el-tag :type="getSourceColor(row.source)" size="small">
+              {{ getSourceLabel(row.source) }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="updated_at" label="更新时间" width="150" align="center">
+        <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
-            {{ formatDate(row.updated_at) }}
+            <el-tag :type="getStatusColor(row.status)" size="small">
+              {{ getStatusLabel(row.status) }}
+            </el-tag>
           </template>
         </el-table-column>
       </el-table>
@@ -98,6 +119,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
+import { automationApi } from '@/api/aitestrebort/automation'
 
 interface Props {
   modelValue: boolean
@@ -113,8 +135,10 @@ const emit = defineEmits<{
 
 // 响应式数据
 const searchText = ref('')
-const selectedType = ref('')
+const selectedModule = ref('')
+const selectedStatus = ref('active')
 const scripts = ref([])
+const modules = ref([])
 const selectedScripts = ref([])
 
 // 表格引用
@@ -130,8 +154,12 @@ const filteredScripts = computed(() => {
     )
   }
 
-  if (selectedType.value) {
-    filtered = filtered.filter(script => script.script_type === selectedType.value)
+  if (selectedModule.value) {
+    filtered = filtered.filter(script => script.module_id === selectedModule.value)
+  }
+
+  if (selectedStatus.value) {
+    filtered = filtered.filter(script => script.status === selectedStatus.value)
   }
 
   return filtered
@@ -140,57 +168,32 @@ const filteredScripts = computed(() => {
 // 方法
 const loadScripts = async () => {
   try {
-    // 模拟API调用
-    scripts.value = [
-      {
-        id: '1',
-        name: '用户注册UI自动化测试',
-        script_type: 'UI',
-        language: 'Python',
-        status: 'active',
-        last_run: '2024-01-15T10:30:00Z',
-        updated_at: '2024-01-15T10:30:00Z'
-      },
-      {
-        id: '2',
-        name: '用户登录API测试',
-        script_type: 'API',
-        language: 'Python',
-        status: 'active',
-        last_run: '2024-01-14T09:20:00Z',
-        updated_at: '2024-01-14T09:20:00Z'
-      },
-      {
-        id: '3',
-        name: '密码重置功能测试',
-        script_type: 'UI',
-        language: 'JavaScript',
-        status: 'active',
-        last_run: null,
-        updated_at: '2024-01-13T14:15:00Z'
-      },
-      {
-        id: '4',
-        name: '订单创建API测试',
-        script_type: 'API',
-        language: 'Python',
-        status: 'active',
-        last_run: '2024-01-12T11:45:00Z',
-        updated_at: '2024-01-12T11:45:00Z'
-      },
-      {
-        id: '5',
-        name: '系统性能压力测试',
-        script_type: 'Performance',
-        language: 'JMeter',
-        status: 'active',
-        last_run: '2024-01-11T16:30:00Z',
-        updated_at: '2024-01-11T16:30:00Z'
-      }
-    ]
+    console.log('Loading scripts for project:', props.projectId)
+    
+    const response = await automationApi.getScripts(props.projectId, {
+      page: 1,
+      page_size: 1000,
+      status: 'active'
+    })
+    
+    console.log('Scripts response:', response)
+    
+    if (response.status === 200) {
+      const scriptData = response.data?.items || response.data || []
+      scripts.value = scriptData
+      
+      // 提取模块信息
+      const moduleMap = new Map()
+      scriptData.forEach(script => {
+        if (script.module_id && script.module_name) {
+          moduleMap.set(script.module_id, { id: script.module_id, name: script.module_name })
+        }
+      })
+      modules.value = Array.from(moduleMap.values())
+    }
   } catch (error) {
-    console.error('获取脚本列表失败:', error)
-    ElMessage.error('获取脚本列表失败')
+    console.error('获取脚本失败:', error)
+    ElMessage.error('获取脚本失败: ' + (error.message || '未知错误'))
   }
 }
 
@@ -219,18 +222,56 @@ const handleConfirm = () => {
 }
 
 // 辅助方法
-const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleDateString('zh-CN')
+const getTypeLabel = (type: string) => {
+  const labels: Record<string, string> = {
+    playwright_python: 'Playwright Python',
+    playwright_javascript: 'Playwright JavaScript'
+  }
+  return labels[type] || type
 }
 
-const getTypeColor = (type) => {
-  const colors = {
-    UI: 'primary',
-    API: 'success',
-    Performance: 'warning',
-    Security: 'danger'
+const getTypeColor = (type: string) => {
+  const colors: Record<string, string> = {
+    playwright_python: 'primary',
+    playwright_javascript: 'success'
   }
   return colors[type] || 'info'
+}
+
+const getSourceLabel = (source: string) => {
+  const labels: Record<string, string> = {
+    ai_generated: 'AI生成',
+    manual: '手动编写',
+    recorded: '录制生成'
+  }
+  return labels[source] || source
+}
+
+const getSourceColor = (source: string) => {
+  const colors: Record<string, string> = {
+    ai_generated: 'success',
+    manual: 'primary',
+    recorded: 'warning'
+  }
+  return colors[source] || 'info'
+}
+
+const getStatusLabel = (status: string) => {
+  const labels: Record<string, string> = {
+    draft: '草稿',
+    active: '激活',
+    deprecated: '已废弃'
+  }
+  return labels[status] || status
+}
+
+const getStatusColor = (status: string) => {
+  const colors: Record<string, string> = {
+    draft: 'info',
+    active: 'success',
+    deprecated: 'danger'
+  }
+  return colors[status] || 'info'
 }
 
 // 监听对话框打开

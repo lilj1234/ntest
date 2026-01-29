@@ -12,6 +12,7 @@ from app.models.aitestrebort import (
     aitestrebortTestCaseScreenshot, aitestrebortTestSuite, aitestrebortTestExecution,
     aitestrebortTestCaseResult, aitestrebortProjectMember
 )
+from app.models.aitestrebort.testcase import aitestrebortTestSuiteScript
 from app.schemas.aitestrebort.testcase import (
     aitestrebortTestCaseCreateSchema, aitestrebortTestCaseUpdateSchema, aitestrebortTestCaseQueryForm,
     aitestrebortTestCaseStepCreateSchema, aitestrebortTestCaseModuleCreateSchema,
@@ -844,7 +845,14 @@ async def delete_testcase_screenshot(request: Request, project_id: int, testcase
 
 
 # 测试套件管理
-async def get_test_suites(request: Request, project_id: int):
+async def get_test_suites(
+    request: Request, 
+    project_id: int,
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    search: Optional[str] = Query(None, description="搜索关键词"),
+    status: Optional[str] = Query(None, description="状态筛选")
+):
     """获取测试套件列表"""
     try:
         project = await aitestrebortProject.get(id=project_id)
@@ -855,26 +863,64 @@ async def get_test_suites(request: Request, project_id: int):
         ).exists():
             return request.app.forbidden(msg="无权限访问此项目")
         
-        suites = await aitestrebortTestSuite.filter(project=project).order_by('-create_time').all()
+        # 构建查询条件
+        query = aitestrebortTestSuite.filter(project=project)
+        
+        # 搜索条件
+        if search:
+            query = query.filter(
+                Q(name__icontains=search) | Q(description__icontains=search)
+            )
+        
+        # 状态筛选（如果有status字段的话）
+        # if status:
+        #     query = query.filter(status=status)
+        
+        # 获取总数
+        total = await query.count()
+        
+        # 分页查询
+        offset = (page - 1) * page_size
+        suites = await query.offset(offset).limit(page_size).order_by('-create_time').all()
         
         suite_list = []
         for suite in suites:
-            # 获取测试用例数量
-            testcase_count = await suite.testcases.all().count()
+            # 只显示脚本数量
+            try:
+                script_count = await aitestrebortTestSuiteScript.filter(suite_id=suite.id).count()
+                logger.info(f"套件 {suite.id} ({suite.name}) 的脚本数量: {script_count}")
+            except Exception as e:
+                logger.error(f"计算套件 {suite.id} 脚本数量失败: {str(e)}")
+                script_count = 0
+            
+            # 获取创建者信息
+            from app.models.system.user import User
+            creator = await User.filter(id=suite.creator_id).first()
+            creator_name = creator.name if creator else "未知"
             
             suite_data = {
                 "id": suite.id,
                 "name": suite.name,
                 "description": suite.description,
-                "testcase_count": testcase_count,
+                "test_case_count": 0,  # 不再使用测试用例
+                "script_count": script_count,
+                "status": suite.status,
                 "max_concurrent_tasks": suite.max_concurrent_tasks,
+                "timeout": suite.timeout,
+                "last_execution": suite.last_execution.isoformat() if suite.last_execution else None,
                 "creator_id": suite.creator_id,
-                "create_time": suite.create_time,
-                "update_time": suite.update_time
+                "creator_name": creator_name,
+                "created_at": suite.create_time.isoformat() if suite.create_time else None,
+                "updated_at": suite.update_time.isoformat() if suite.update_time else None
             }
             suite_list.append(suite_data)
         
-        return request.app.get_success(data=suite_list)
+        return request.app.get_success(data={
+            "items": suite_list,
+            "total": total,
+            "page": page,
+            "page_size": page_size
+        })
         
     except DoesNotExist:
         return request.app.fail(msg="项目不存在")
@@ -903,6 +949,8 @@ async def create_test_suite(request: Request, project_id: int, suite_data: aites
                 name=suite_data.name,
                 description=suite_data.description,
                 max_concurrent_tasks=suite_data.max_concurrent_tasks or 1,
+                timeout=suite_data.timeout or 300,
+                status=suite_data.status or "active",
                 creator_id=request.state.user.id
             )
             
@@ -945,28 +993,50 @@ async def get_test_suite_detail(request: Request, project_id: int, suite_id: int
         
         suite = await aitestrebortTestSuite.get(id=suite_id, project=project)
         
-        # 获取测试用例列表
-        testcases = await suite.testcases.all()
+        # 通过中间表获取脚本列表
+        suite_scripts = await aitestrebortTestSuiteScript.filter(suite_id=suite_id).all()
+        script_ids = [ss.script_id for ss in suite_scripts]
+        
+        # 获取脚本详情
+        script_list = []
+        if script_ids:
+            from app.models.aitestrebort.automation import aitestrebortAutomationScript
+            scripts = await aitestrebortAutomationScript.filter(id__in=script_ids).all()
+            for script in scripts:
+                script_data = {
+                    "id": script.id,
+                    "name": script.name,
+                    "description": script.description,
+                    "script_type": script.script_type,
+                    "status": script.status,
+                    "source": script.source
+                }
+                script_list.append(script_data)
+        
+        # 只显示脚本，不再显示测试用例
         testcase_list = []
-        for testcase in testcases:
-            testcase_data = {
-                "id": testcase.id,
-                "name": testcase.name,
-                "level": testcase.level,
-                "module_id": testcase.module_id
-            }
-            testcase_list.append(testcase_data)
+        
+        # 获取创建者信息
+        from app.models.system.user import User
+        creator = await User.filter(id=suite.creator_id).first()
+        creator_name = creator.name if creator else "未知"
         
         suite_data = {
             "id": suite.id,
             "name": suite.name,
             "description": suite.description,
-            "testcases": testcase_list,
-            "testcase_count": len(testcase_list),
+            "testcases": testcase_list,  # 保持空数组以兼容前端
+            "scripts": script_list,
+            "test_case_count": 0,  # 不再使用测试用例
+            "script_count": len(script_list),
+            "status": suite.status,
             "max_concurrent_tasks": suite.max_concurrent_tasks,
+            "timeout": suite.timeout,
+            "last_execution": suite.last_execution.isoformat() if suite.last_execution else None,
             "creator_id": suite.creator_id,
-            "create_time": suite.create_time,
-            "update_time": suite.update_time
+            "creator_name": creator_name,
+            "created_at": suite.create_time.isoformat() if suite.create_time else None,
+            "updated_at": suite.update_time.isoformat() if suite.update_time else None
         }
         
         return request.app.get_success(data=suite_data)
@@ -1003,23 +1073,45 @@ async def update_test_suite(request: Request, project_id: int, suite_id: int, su
             suite.description = suite_data.description
         if suite_data.max_concurrent_tasks is not None:
             suite.max_concurrent_tasks = suite_data.max_concurrent_tasks
+        if suite_data.timeout is not None:
+            suite.timeout = suite_data.timeout
+        if suite_data.status is not None:
+            suite.status = suite_data.status
         
         await suite.save()
         
-        # 更新测试用例
-        if suite_data.testcase_ids is not None:
-            await suite.testcases.clear()
-            if suite_data.testcase_ids:
-                testcases = await aitestrebortTestCase.filter(
-                    id__in=suite_data.testcase_ids, project=project
+        # 更新脚本（通过中间表）
+        if hasattr(suite_data, 'script_ids') and suite_data.script_ids is not None:
+            # 删除现有关联
+            await aitestrebortTestSuiteScript.filter(suite_id=suite_id).delete()
+            
+            # 添加新关联
+            if suite_data.script_ids:
+                # 验证脚本是否存在且属于该项目
+                from app.models.aitestrebort.automation import aitestrebortAutomationScript
+                scripts = await aitestrebortAutomationScript.filter(
+                    id__in=suite_data.script_ids, project_id=project.id
                 ).all()
-                await suite.testcases.add(*testcases)
+                
+                for script in scripts:
+                    await aitestrebortTestSuiteScript.create(
+                        suite_id=suite_id,
+                        script_id=script.id
+                    )
+        
+        # 更新测试用例（通过中间表）- 保持兼容性
+        if hasattr(suite_data, 'testcase_ids') and suite_data.testcase_ids is not None:
+            # 这里暂时保留旧的逻辑，但实际上我们现在主要使用脚本
+            pass
+        
+        # 获取更新后的脚本数量
+        script_count = await aitestrebortTestSuiteScript.filter(suite_id=suite_id).count()
         
         suite_result = {
             "id": suite.id,
             "name": suite.name,
             "description": suite.description,
-            "testcase_count": await suite.testcases.all().count(),
+            "script_count": script_count,
             "max_concurrent_tasks": suite.max_concurrent_tasks,
             "creator_id": suite.creator_id,
             "create_time": suite.create_time,
@@ -1069,35 +1161,32 @@ async def execute_test_suite(request: Request, project_id: int, suite_id: int):
         
         suite = await aitestrebortTestSuite.get(id=suite_id, project=project)
         
-        # 获取测试用例数量
-        testcase_count = await suite.testcases.all().count()
-        if testcase_count == 0:
-            return request.app.fail(msg="测试套件中没有测试用例")
+        # 通过中间表获取脚本数量
+        script_count = await aitestrebortTestSuiteScript.filter(suite_id=suite_id).count()
+        if script_count == 0:
+            return request.app.fail(msg="测试套件中没有可执行的脚本")
         
-        # 创建执行记录
-        execution = await aitestrebortTestExecution.create(
-            suite=suite,
-            executor_id=request.state.user.id,
-            total_count=testcase_count,
-            status="pending"
-        )
+        # 更新最后执行时间
+        from datetime import datetime
+        suite.last_execution = datetime.now()
+        await suite.save()
         
-        # 这里应该启动异步任务执行测试
-        # 暂时返回执行记录
+        # 这里应该启动异步任务执行测试套件
+        # 暂时返回成功，后续可以集成 Celery 或其他任务队列
+        
         execution_result = {
-            "id": execution.id,
-            "suite_id": execution.suite_id,
-            "status": execution.status,
-            "executor_id": execution.executor_id,
-            "total_count": execution.total_count,
-            "passed_count": execution.passed_count,
-            "failed_count": execution.failed_count,
-            "skipped_count": execution.skipped_count,
-            "error_count": execution.error_count,
-            "create_time": execution.create_time
+            "suite_id": suite_id,
+            "message": "测试套件执行已启动",
+            "script_count": script_count,
+            "started_at": suite.last_execution.isoformat()
         }
         
         return request.app.post_success(data=execution_result)
+        
+    except DoesNotExist:
+        return request.app.fail(msg="项目或测试套件不存在")
+    except Exception as e:
+        return request.app.error(msg=f"执行测试套件失败: {str(e)}")
         
     except DoesNotExist:
         return request.app.fail(msg="项目或测试套件不存在")
@@ -1432,3 +1521,137 @@ async def export_testcases_to_xmind(request: Request, project_id: int):
     except Exception as e:
         logger.error(f"导出XMind失败: {str(e)}", exc_info=True)
         return request.app.error(msg=f"导出XMind失败: {str(e)}")
+
+
+# 测试套件脚本管理
+async def add_scripts_to_suite(request: Request, project_id: int, suite_id: int):
+    """添加脚本到测试套件"""
+    try:
+        # 获取请求体数据
+        body = await request.json()
+        script_ids = body.get('script_ids', [])
+        
+        if not script_ids:
+            return request.app.fail(msg="请提供要添加的脚本ID列表")
+        
+        project = await aitestrebortProject.get(id=project_id)
+        
+        # 检查权限
+        if not await aitestrebortProjectMember.filter(
+            project=project, user_id=request.state.user.id
+        ).exists():
+            return request.app.forbidden(msg="无权限访问此项目")
+        
+        suite = await aitestrebortTestSuite.get(id=suite_id, project=project)
+        
+        # 验证脚本是否存在且属于该项目
+        from app.models.aitestrebort.automation import aitestrebortAutomationScript
+        scripts = await aitestrebortAutomationScript.filter(
+            id__in=script_ids, project_id=project.id
+        ).all()
+        
+        if len(scripts) != len(script_ids):
+            return request.app.fail(msg="部分脚本不存在或不属于该项目")
+        
+        # 添加脚本到套件（通过中间表）
+        added_count = 0
+        for script in scripts:
+            # 检查是否已存在
+            if not await aitestrebortTestSuiteScript.filter(
+                suite_id=suite_id, script_id=script.id
+            ).exists():
+                await aitestrebortTestSuiteScript.create(
+                    suite_id=suite_id,
+                    script_id=script.id
+                )
+                added_count += 1
+        
+        return request.app.post_success(data={
+            "message": f"成功添加 {added_count} 个脚本到测试套件",
+            "added_count": added_count,
+            "total_requested": len(script_ids)
+        })
+        
+    except DoesNotExist:
+        return request.app.fail(msg="项目或测试套件不存在")
+    except Exception as e:
+        logger.error(f"添加脚本到测试套件失败: {str(e)}", exc_info=True)
+        return request.app.error(msg=f"添加脚本到测试套件失败: {str(e)}")
+
+
+async def remove_script_from_suite(request: Request, project_id: int, suite_id: int, script_id: int):
+    """从测试套件移除脚本"""
+    try:
+        project = await aitestrebortProject.get(id=project_id)
+        
+        # 检查权限
+        if not await aitestrebortProjectMember.filter(
+            project=project, user_id=request.state.user.id
+        ).exists():
+            return request.app.forbidden(msg="无权限访问此项目")
+        
+        suite = await aitestrebortTestSuite.get(id=suite_id, project=project)
+        
+        # 验证脚本是否存在且属于该项目
+        from app.models.aitestrebort.automation import aitestrebortAutomationScript
+        script = await aitestrebortAutomationScript.get(id=script_id, project_id=project.id)
+        
+        # 从套件中移除脚本
+        deleted_count = await aitestrebortTestSuiteScript.filter(
+            suite_id=suite_id, script_id=script_id
+        ).delete()
+        
+        if deleted_count > 0:
+            return request.app.delete_success(msg="脚本已从测试套件中移除")
+        else:
+            return request.app.fail(msg="脚本不在该测试套件中")
+        
+    except DoesNotExist:
+        return request.app.fail(msg="项目、测试套件或脚本不存在")
+    except Exception as e:
+        logger.error(f"从测试套件移除脚本失败: {str(e)}", exc_info=True)
+        return request.app.error(msg=f"从测试套件移除脚本失败: {str(e)}")
+
+
+async def get_suite_scripts(request: Request, project_id: int, suite_id: int):
+    """获取测试套件脚本列表"""
+    try:
+        project = await aitestrebortProject.get(id=project_id)
+        
+        # 检查权限
+        if not await aitestrebortProjectMember.filter(
+            project=project, user_id=request.state.user.id
+        ).exists():
+            return request.app.forbidden(msg="无权限访问此项目")
+        
+        suite = await aitestrebortTestSuite.get(id=suite_id, project=project)
+        
+        # 通过中间表获取脚本列表
+        suite_scripts = await aitestrebortTestSuiteScript.filter(suite_id=suite_id).all()
+        script_ids = [ss.script_id for ss in suite_scripts]
+        
+        script_list = []
+        if script_ids:
+            from app.models.aitestrebort.automation import aitestrebortAutomationScript
+            scripts = await aitestrebortAutomationScript.filter(id__in=script_ids).all()
+            for script in scripts:
+                script_data = {
+                    "id": script.id,
+                    "name": script.name,
+                    "description": script.description,
+                    "script_type": script.script_type,
+                    "status": script.status,
+                    "source": script.source,
+                    "language": script.language,
+                    "framework": script.framework,
+                    "created_at": script.create_time.isoformat() if script.create_time else None
+                }
+                script_list.append(script_data)
+        
+        return request.app.get_success(data=script_list)
+        
+    except DoesNotExist:
+        return request.app.fail(msg="项目或测试套件不存在")
+    except Exception as e:
+        logger.error(f"获取测试套件脚本列表失败: {str(e)}", exc_info=True)
+        return request.app.error(msg=f"获取测试套件脚本列表失败: {str(e)}")

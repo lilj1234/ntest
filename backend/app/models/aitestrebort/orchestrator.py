@@ -42,18 +42,18 @@ class OrchestratorTask(Model):
     
     # 交互式执行相关
     execution_plan = fields.JSONField(null=True, description="执行计划")
-    execution_history = fields.JSONField(default=list, description="执行历史")
+    execution_history = fields.JSONField(null=True, description="执行历史")
     current_step = fields.IntField(default=0, description="当前步骤")
     waiting_for = fields.CharField(max_length=50, null=True, description="等待对象")
     user_notes = fields.TextField(null=True, description="用户备注")
     
     # 输出
     requirement_analysis = fields.JSONField(null=True, description="需求分析结果")
-    knowledge_docs = fields.JSONField(default=list, description="检索的知识文档")
-    testcases = fields.JSONField(default=list, description="生成的测试用例")
+    knowledge_docs = fields.JSONField(null=True, description="检索的知识文档")
+    testcases = fields.JSONField(null=True, description="生成的测试用例")
     
     # 执行记录(保留兼容性)
-    execution_log = fields.JSONField(default=list, description="执行日志(旧)")
+    execution_log = fields.JSONField(null=True, description="执行日志(旧)")
     error_message = fields.TextField(null=True, description="错误信息")
     
     # 时间
@@ -97,7 +97,7 @@ class AgentStep(Model):
     step_number = fields.IntField(description="步骤序号")
     
     # 输入
-    input_context = fields.JSONField(default=dict, description="输入上下文（精简版）")
+    input_context = fields.JSONField(null=True, description="输入上下文（精简版）")
     
     # AI 决策
     ai_thinking = fields.TextField(null=True, description="AI思考过程")
@@ -136,16 +136,16 @@ class AgentBlackboard(Model):
     )
     
     # 历史摘要（精简版，供 AI 参考）
-    history_summary = fields.JSONField(default=list, description="历史摘要列表")
+    history_summary = fields.JSONField(null=True, description="历史摘要列表")
     
     # 当前状态（如当前页面 URL、已完成的子任务等）
-    current_state = fields.JSONField(default=dict, description="当前状态")
+    current_state = fields.JSONField(null=True, description="当前状态")
     
     # 工具结果引用列表（完整结果的存储位置）
-    tool_results_refs = fields.JSONField(default=list, description="工具结果引用")
+    tool_results_refs = fields.JSONField(null=True, description="工具结果引用")
     
     # 上下文变量（可供工具使用的变量）
-    context_variables = fields.JSONField(default=dict, description="上下文变量")
+    context_variables = fields.JSONField(null=True, description="上下文变量")
     
     updated_at = fields.DatetimeField(auto_now=True, description="更新时间")
 

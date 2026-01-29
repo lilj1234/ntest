@@ -4,7 +4,6 @@
     <div class="page-header">
       <div class="header-left">
         <div class="header-actions">
-          <el-button @click="goBack" icon="ArrowLeft">返回</el-button>
         </div>
         <h1 class="page-title">需求管理</h1>
         <p class="page-description">管理项目需求文档，支持文档上传、模块拆分、评审分析等功能</p>

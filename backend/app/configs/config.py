@@ -333,6 +333,8 @@ tortoise_orm_conf = {
                 'app.models.aitestrebort.automation',
                 'app.models.aitestrebort.knowledge',  # 知识库模块
                 'app.models.aitestrebort.requirements',  # 需求管理模块
+                'app.models.aitestrebort.orchestrator',  # 智能编排模块
+                'app.models.playwright_agents',  # Playwright Test Agents 模块
             ],
             "default_connection": "default",  # 数据库迁移会用到
         }

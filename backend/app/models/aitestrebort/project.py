@@ -143,14 +143,14 @@ class aitestrebortMCPConfig(BaseModel):
         default="streamable-http", 
         description="MCP 服务器的传输协议，例如 'streamable-http'"
     )
-    headers = fields.JSONField(default=dict, description="可选的认证头，例如 {'Authorization': 'Bearer YOUR_TOKEN'}")
+    headers = fields.JSONField(null=True, description="可选的认证头，例如 {'Authorization': 'Bearer YOUR_TOKEN'}")
     is_enabled = fields.BooleanField(default=True, description="是否启用此远程 MCP 服务器")
     creator_id = fields.IntField(description="创建人ID")
     
     # 保留旧字段以兼容现有数据（可选）
     command = fields.CharField(max_length=500, null=True, description="启动命令（已废弃）")
-    args = fields.JSONField(default=list, description="命令参数（已废弃）")
-    env = fields.JSONField(default=dict, description="环境变量（已废弃，使用headers）")
+    args = fields.JSONField(null=True, description="命令参数（已废弃）")
+    env = fields.JSONField(null=True, description="环境变量（已废弃，使用headers）")
     working_dir = fields.CharField(max_length=500, null=True, description="工作目录（已废弃）")
     auto_start = fields.BooleanField(default=False, description="自动启动（已废弃）")
     timeout = fields.IntField(default=30, description="超时时间(秒)（已废弃）")
@@ -230,7 +230,7 @@ class aitestrebortMessage(BaseModel):
     role = fields.CharField(max_length=20, description="角色")  # user, assistant, system
     content = fields.TextField(description="消息内容")
     message_type = fields.CharField(max_length=50, default="text", description="消息类型")
-    metadata = fields.JSONField(default=dict, description="元数据")
+    metadata = fields.JSONField(null=True, description="元数据")
     tokens_used = fields.IntField(null=True, description="使用的令牌数")
     
     class Meta:

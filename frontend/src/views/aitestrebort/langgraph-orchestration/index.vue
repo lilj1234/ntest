@@ -2,13 +2,9 @@
   <div class="langgraph-orchestration">
     <el-card class="page-header">
       <div class="header-content">
-        <el-button @click="goBack" style="margin-right: 16px;">
-          <el-icon><ArrowLeft /></el-icon>
-          返回
-        </el-button>
         <div>
-          <h2>LangGraph智能编排</h2>
-          <p>基于LangGraph的智能对话和RAG查询系统</p>
+          <h2>RAG检索</h2>
+          <p>智能对话和RAG查询系统</p>
         </div>
       </div>
     </el-card>

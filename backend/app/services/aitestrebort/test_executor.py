@@ -36,7 +36,7 @@ class TestExecutorService:
         try:
             from app.models.aitestrebort import (
                 aitestrebortTestSuite, aitestrebortTestExecution, 
-                aitestrebortTestCaseResult, aitestrebortTestSuiteCase
+                aitestrebortTestCaseResult, aitestrebortTestSuiteScript
             )
             
             # 获取测试套件和执行记录
@@ -50,10 +50,10 @@ class TestExecutorService:
             
             logger.info(f"开始执行测试套件: {suite.name}")
             
-            # 获取所有测试用例
-            suite_cases = await aitestrebortTestSuiteCase.filter(suite=suite).all()
-            testcases = []
-            for suite_case in suite_cases:
+            # 获取所有脚本
+            suite_scripts = await aitestrebortTestSuiteScript.filter(suite=suite).all()
+            scripts = []
+            for suite_script in suite_scripts:
                 testcase = await suite_case.testcase
                 testcases.append(testcase)
             

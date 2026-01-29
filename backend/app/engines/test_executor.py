@@ -152,12 +152,12 @@ class TestExecutor:
             raise
     
     async def _get_suite_test_cases(self, suite_id: int) -> List[aitestrebortTestCase]:
-        """获取测试套件的测试用例"""
-        # 通过关联表获取测试用例
-        from app.models.aitestrebort.testcase import aitestrebortTestSuiteCase
+        """获取测试套件的脚本"""
+        # 通过关联表获取脚本
+        from app.models.aitestrebort.testcase import aitestrebortTestSuiteScript
         
-        suite_cases = await aitestrebortTestSuiteCase.filter(suite_id=suite_id).all()
-        test_case_ids = [sc.testcase_id for sc in suite_cases]
+        suite_scripts = await aitestrebortTestSuiteScript.filter(suite_id=suite_id).all()
+        script_ids = [ss.script_id for ss in suite_scripts]
         
         test_cases = await aitestrebortTestCase.filter(id__in=test_case_ids).all()
         return test_cases

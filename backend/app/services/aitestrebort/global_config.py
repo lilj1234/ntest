@@ -183,18 +183,113 @@ async def test_llm_config(request: Request, config_id: int):
         return request.app.error(msg=f"测试LLM配置失败: {str(e)}")
 
 
-# MCP 配置管理 - 占位实现
+# MCP 配置管理 - 用户级别（全局）
 async def get_mcp_configs(request: Request):
-    return request.app.get_success(data=[])
+    """获取当前用户的 MCP 配置列表"""
+    try:
+        from ...models.aitestrebort.project import aitestrebortMCPConfig
+        
+        # 获取当前用户的所有 MCP 配置
+        configs = await aitestrebortMCPConfig.filter(
+            user_id=request.state.user.id
+        ).order_by('-id')
+        
+        items = []
+        for config in configs:
+            items.append({
+                "id": config.id,
+                "name": config.name,
+                "url": config.url,
+                "transport": config.transport,
+                "headers": config.headers,
+                "created_at": config.create_time.strftime("%Y-%m-%d %H:%M:%S") if config.create_time else None
+            })
+        
+        return request.app.get_success(data=items)
+        
+    except Exception as e:
+        logger.error(f"获取 MCP 配置失败: {str(e)}")
+        return request.app.fail(msg=f"获取失败: {str(e)}")
 
 async def create_mcp_config(request: Request, config_data: dict):
-    return request.app.post_success(data={})
+    """创建 MCP 配置"""
+    try:
+        from ...models.aitestrebort.project import aitestrebortMCPConfig
+        
+        # 检查名称是否已存在
+        if await aitestrebortMCPConfig.filter(
+            user_id=request.state.user.id,
+            name=config_data.get('name')
+        ).exists():
+            return request.app.fail(msg="配置名称已存在")
+        
+        config = await aitestrebortMCPConfig.create(
+            user_id=request.state.user.id,
+            name=config_data.get('name'),
+            url=config_data.get('url'),
+            transport=config_data.get('transport', 'sse'),
+            headers=config_data.get('headers', {})
+        )
+        
+        return request.app.post_success(data={
+            "id": config.id,
+            "name": config.name,
+            "url": config.url
+        })
+        
+    except Exception as e:
+        logger.error(f"创建 MCP 配置失败: {str(e)}")
+        return request.app.fail(msg=f"创建失败: {str(e)}")
 
 async def update_mcp_config(request: Request, config_id: int, config_data: dict):
-    return request.app.put_success(data={})
+    """更新 MCP 配置"""
+    try:
+        from ...models.aitestrebort.project import aitestrebortMCPConfig
+        
+        config = await aitestrebortMCPConfig.get(
+            id=config_id,
+            user_id=request.state.user.id
+        )
+        
+        # 更新字段
+        if 'name' in config_data:
+            config.name = config_data['name']
+        if 'url' in config_data:
+            config.url = config_data['url']
+        if 'transport' in config_data:
+            config.transport = config_data['transport']
+        if 'headers' in config_data:
+            config.headers = config_data['headers']
+        
+        await config.save()
+        
+        return request.app.put_success(data={
+            "id": config.id,
+            "name": config.name,
+            "url": config.url
+        })
+        
+    except Exception as e:
+        logger.error(f"更新 MCP 配置失败: {str(e)}")
+        return request.app.fail(msg=f"更新失败: {str(e)}")
 
 async def delete_mcp_config(request: Request, config_id: int):
-    return request.app.delete_success()
+    """删除 MCP 配置"""
+    try:
+        from ...models.aitestrebort.project import aitestrebortMCPConfig
+        
+        config = await aitestrebortMCPConfig.get(
+            id=config_id,
+            user_id=request.state.user.id
+        )
+        
+        await config.delete()
+        
+        return request.app.delete_success()
+        
+    except Exception as e:
+        logger.error(f"删除 MCP 配置失败: {str(e)}")
+        return request.app.fail(msg=f"删除失败: {str(e)}")
 
 
 # API 密钥管理 - 占位实现
@@ -483,7 +578,8 @@ async def send_message(request: Request, conversation_id: int, message_data: dic
         user_message = await aitestrebortMessage.create(
             conversation=conversation,
             role='user',
-            content=content
+            content=content,
+            metadata={}
         )
         
         # 获取 LLM 配置
@@ -542,7 +638,8 @@ async def send_message(request: Request, conversation_id: int, message_data: dic
             ai_message = await aitestrebortMessage.create(
                 conversation=conversation,
                 role='assistant',
-                content=response.content
+                content=response.content,
+                metadata={}
             )
             
             # 更新对话的更新时间

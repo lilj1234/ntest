@@ -109,7 +109,7 @@
                       <el-icon><Collection /></el-icon>
                     </el-button>
                   </el-tooltip>
-                  <el-tooltip content="脚本生成" placement="top">
+                  <el-tooltip content="AI脚本生成" placement="top">
                     <el-button 
                       size="small" 
                       text
@@ -127,7 +127,7 @@
                         <el-dropdown-menu>
                           <el-dropdown-item command="langgraph-orchestration">
                             <el-icon><Link /></el-icon>
-                            LangGraph编排
+                            RAG检索
                           </el-dropdown-item>
                           <el-dropdown-item command="agent-execution">
                             <el-icon><Setting /></el-icon>
@@ -135,11 +135,11 @@
                           </el-dropdown-item>
                           <el-dropdown-item command="requirement-retrieval">
                             <el-icon><Search /></el-icon>
-                            需求检索
+                            AI需求检索
                           </el-dropdown-item>
                           <el-dropdown-item command="quality-assessment">
                             <el-icon><Star /></el-icon>
-                            质量评估
+                            AI质量评估
                           </el-dropdown-item>
                           <el-dropdown-item command="ai-diagram">
                             <el-icon><PieChart /></el-icon>

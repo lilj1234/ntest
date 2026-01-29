@@ -134,7 +134,7 @@ class Requirement(Model):
     status = fields.CharField(max_length=20, default="draft", description="状态")
     
     # 相关人员 (JSON字段)
-    stakeholders = fields.JSONField(default=list, description="相关人员列表")
+    stakeholders = fields.JSONField(null=True, description="相关人员列表")
     
     # 元数据
     creator_id = fields.IntField(null=True, description="创建人ID")
@@ -242,10 +242,10 @@ class ModuleReviewResult(Model):
     severity_score = fields.IntField(default=0, description="严重程度评分")
     
     # 详细分析 (JSON字段存储列表)
-    issues = fields.JSONField(default=list, description="问题列表")
-    strengths = fields.JSONField(default=list, description="优点列表")
-    weaknesses = fields.JSONField(default=list, description="不足列表")
-    recommendations = fields.JSONField(default=list, description="改进建议列表")
+    issues = fields.JSONField(null=True, description="问题列表")
+    strengths = fields.JSONField(null=True, description="优点列表")
+    weaknesses = fields.JSONField(null=True, description="不足列表")
+    recommendations = fields.JSONField(null=True, description="改进建议列表")
     
     # 文本分析内容
     analysis_content = fields.TextField(null=True, description="分析内容")

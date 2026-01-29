@@ -356,7 +356,7 @@ const showGenerateDialog = ref(false)
 
 // 计算属性
 const projectId = computed(() => Number(route.params.projectId))
-const documentId = computed(() => route.params.documentId as string)
+const documentId = computed(() => route.params.id as string)
 
 const canSplit = computed(() => {
   if (!document.value) return false
@@ -813,6 +813,9 @@ onMounted(() => {
   flex: 1;
   overflow-y: auto;
   padding: 20px;
+  max-height: 600px; /* 设置最大高度 */
+  border: 1px solid #ebeef5; /* 添加边框以更好地显示滚动区域 */
+  border-radius: 4px;
 }
 
 .document-content-wrapper.fullscreen {
@@ -946,6 +949,7 @@ onMounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
+  max-height: 600px; /* 与文档内容视图保持一致 */
 }
 
 .modules-header {
@@ -965,7 +969,10 @@ onMounted(() => {
 .modules-list {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  max-height: 600px; /* 设置最大高度 */
+  border: 1px solid #ebeef5; /* 添加边框以更好地显示滚动区域 */
+  border-radius: 4px;
+  padding: 16px 16px 32px 16px; /* 增加底部内边距 */
 }
 
 .module-card {
@@ -976,6 +983,10 @@ onMounted(() => {
   cursor: pointer;
   transition: all 0.3s ease;
   background: #fff;
+}
+
+.module-card:last-child {
+  margin-bottom: 24px; /* 为最后一个卡片添加额外的底部边距 */
 }
 
 .module-card:hover {

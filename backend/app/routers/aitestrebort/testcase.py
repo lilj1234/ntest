@@ -3,6 +3,9 @@ aitestrebort 测试用例管理路由
 """
 from ..base_view import APIRouter
 from ...services.aitestrebort import testcase as testcase_service
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -47,5 +50,46 @@ router.add_get_route("/projects/{project_id}/test-executions", testcase_service.
 router.add_get_route("/projects/{project_id}/test-executions/{execution_id}", testcase_service.get_execution_detail, summary="获取执行记录详情")
 router.add_put_route("/projects/{project_id}/test-executions/{execution_id}/cancel", testcase_service.cancel_test_execution, summary="取消测试执行")
 
+# 测试套件脚本管理
+router.add_post_route("/projects/{project_id}/test-suites/{suite_id}/scripts", testcase_service.add_scripts_to_suite, summary="添加脚本到测试套件")
+router.add_delete_route("/projects/{project_id}/test-suites/{suite_id}/scripts/{script_id}", testcase_service.remove_script_from_suite, summary="从测试套件移除脚本")
+router.add_get_route("/projects/{project_id}/test-suites/{suite_id}/scripts", testcase_service.get_suite_scripts, summary="获取测试套件脚本列表")
+
 # 测试用例导出
 router.add_api_route("/projects/{project_id}/testcases/export/xmind", testcase_service.export_testcases_to_xmind, methods=["GET"], response_model=None, summary="导出测试用例为XMind格式")
+
+# WebSocket对话路由
+from fastapi import WebSocket, Query, WebSocketDisconnect, status
+from ...services.aitestrebort.conversation_websocket import handle_websocket_conversation
+from ...models.system.model_factory import User
+
+@router.websocket("/projects/{project_id}/conversations/{conversation_id}/ws")
+async def websocket_conversation_endpoint(
+    websocket: WebSocket,
+    project_id: int,
+    conversation_id: int,
+    token: str = Query(None, description="访问令牌")
+):
+    """WebSocket对话端点
+    
+    Args:
+        websocket: WebSocket连接
+        project_id: 项目ID
+        conversation_id: 对话ID
+        token: JWT访问令牌（通过query参数传递）
+    """
+    # 从token中获取用户信息
+    user_id = 1  # 默认用户ID
+    
+    if token:
+        # 验证token并获取用户信息
+        user_info = User.check_token(token, websocket.app.conf.token_secret_key)
+        if user_info and isinstance(user_info, dict):
+            user_id = user_info.get("id", 1)
+        else:
+            # Token无效，拒绝连接
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid token")
+            return
+    
+    await handle_websocket_conversation(websocket, user_id, conversation_id, project_id)
+

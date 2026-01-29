@@ -27,6 +27,8 @@
     "element-plus": "2.3.8",
     "highlight.js": "^11.11.1",
     "jwt-decode": "4.0.0",
+    "markdown-it": "^14.1.0",
+    "markdown-it-highlightjs": "^4.2.0",
     "marked": "^17.0.1",
     "mind-elixir": "3.3.2",
     "mitt": "3.0.1",

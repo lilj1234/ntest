@@ -137,8 +137,9 @@ async def get_project_detail(request: Request, project_id: int):
             "name": project.name,
             "description": project.description,
             "creator_id": project.creator_id,
-            "create_time": project.create_time,
-            "update_time": project.update_time,
+            "create_time": project.create_time.isoformat() if project.create_time else None,
+            "update_time": project.update_time.isoformat() if project.update_time else None,
+            "status": "active",  # 默认状态为活跃，因为模型中没有状态字段
             "testcase_count": testcase_count,
             "member_count": member_count,
             "suite_count": suite_count
@@ -1311,10 +1312,20 @@ async def get_project_statistics(request: Request, project_id: int):
         module_count = await project.testcase_modules.all().count()
         suite_count = await project.test_suites.all().count()
         member_count = await project.members.all().count()
-        automation_script_count = await project.automation_scripts.all().count()
+        
+        # 通过测试用例统计自动化脚本数量
+        from app.models.aitestrebort.automation import aitestrebortAutomationScript
+        automation_script_count = await aitestrebortAutomationScript.filter(
+            test_case__project_id=project_id
+        ).count()
+        
         llm_config_count = await project.llm_configs.all().count()
-        mcp_config_count = await project.mcp_configs.all().count()
-        api_key_count = await project.api_keys.all().count()
+        
+        # MCP 配置是用户级别的，不是项目级别的，所以不统计
+        # mcp_config_count = await project.mcp_configs.all().count()
+        
+        # API 密钥也是用户级别的，不是项目级别的，所以不统计
+        # api_key_count = await project.api_keys.all().count()
         
         # 执行统计
         execution_count = 0
@@ -1328,9 +1339,7 @@ async def get_project_statistics(request: Request, project_id: int):
             "member_count": member_count,
             "automation_script_count": automation_script_count,
             "execution_count": execution_count,
-            "llm_config_count": llm_config_count,
-            "mcp_config_count": mcp_config_count,
-            "api_key_count": api_key_count
+            "llm_config_count": llm_config_count
         }
         
         return request.app.get_success(data=stats)
@@ -1339,6 +1348,71 @@ async def get_project_statistics(request: Request, project_id: int):
         return request.app.fail(msg="项目不存在")
     except Exception as e:
         return request.app.error(msg=f"获取项目统计失败: {str(e)}")
+
+
+async def get_project_activity(request: Request, project_id: int):
+    """获取项目最近活动"""
+    try:
+        project = await aitestrebortProject.get(id=project_id)
+        
+        # 检查权限
+        if not await aitestrebortProjectMember.filter(
+            project=project, user_id=request.state.user.id
+        ).exists():
+            return request.app.forbidden(msg="无权限访问此项目")
+        
+        # 获取最近的活动记录
+        activities = []
+        
+        # 获取最近创建的测试用例（最多5个）
+        recent_testcases = await project.testcases.all().order_by('-create_time').limit(5)
+        for testcase in recent_testcases:
+            activities.append({
+                "id": f"testcase_{testcase.id}",
+                "type": "testcase",
+                "title": "创建了测试用例",
+                "description": testcase.name,
+                "user": "系统用户",  # TODO: 从用户表获取真实用户名
+                "time": testcase.create_time.isoformat()
+            })
+        
+        # 获取最近创建的自动化脚本（最多3个）
+        from app.models.aitestrebort.automation import aitestrebortAutomationScript
+        recent_scripts = await aitestrebortAutomationScript.filter(
+            test_case__project_id=project_id
+        ).order_by('-create_time').limit(3)
+        for script in recent_scripts:
+            activities.append({
+                "id": f"script_{script.id}",
+                "type": "automation",
+                "title": "生成了自动化脚本",
+                "description": script.name,
+                "user": "系统用户",
+                "time": script.create_time.isoformat()
+            })
+        
+        # 获取最近创建的测试套件（最多3个）
+        recent_suites = await project.test_suites.all().order_by('-create_time').limit(3)
+        for suite in recent_suites:
+            activities.append({
+                "id": f"suite_{suite.id}",
+                "type": "suite",
+                "title": "创建了测试套件",
+                "description": suite.name,
+                "user": "系统用户",
+                "time": suite.create_time.isoformat()
+            })
+        
+        # 按时间排序，取最近的10个活动
+        activities.sort(key=lambda x: x["time"], reverse=True)
+        activities = activities[:10]
+        
+        return request.app.get_success(data=activities)
+        
+    except DoesNotExist:
+        return request.app.fail(msg="项目不存在")
+    except Exception as e:
+        return request.app.error(msg=f"获取项目活动失败: {str(e)}")
 
 
 # 移除项目成员

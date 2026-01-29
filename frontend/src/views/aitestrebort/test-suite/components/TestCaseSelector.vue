@@ -53,14 +53,12 @@
         <el-table-column prop="module_name" label="所属模块" width="150" />
         <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'active' ? 'success' : 'danger'" size="small">
-              {{ row.status === 'active' ? '启用' : '禁用' }}
-            </el-tag>
+            <el-tag type="success" size="small">启用</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="updated_at" label="更新时间" width="150" align="center">
+        <el-table-column prop="update_time" label="更新时间" width="150" align="center">
           <template #default="{ row }">
-            {{ formatDate(row.updated_at) }}
+            {{ formatDate(row.update_time) }}
           </template>
         </el-table-column>
       </el-table>
@@ -95,6 +93,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
+import { testcaseApi } from '@/api/aitestrebort/testcase'
 
 interface Props {
   modelValue: boolean
@@ -138,63 +137,32 @@ const filteredTestCases = computed(() => {
 // 方法
 const loadTestCases = async () => {
   try {
-    // 模拟API调用
-    testCases.value = [
-      {
-        id: '1',
-        name: '用户注册功能测试',
-        level: 'P1',
-        module_id: 'module1',
-        module_name: '用户管理',
-        status: 'active',
-        updated_at: '2024-01-15T10:30:00Z'
-      },
-      {
-        id: '2',
-        name: '用户登录功能测试',
-        level: 'P0',
-        module_id: 'module1',
-        module_name: '用户管理',
-        status: 'active',
-        updated_at: '2024-01-14T09:20:00Z'
-      },
-      {
-        id: '3',
-        name: '密码重置功能测试',
-        level: 'P2',
-        module_id: 'module1',
-        module_name: '用户管理',
-        status: 'active',
-        updated_at: '2024-01-13T14:15:00Z'
-      },
-      {
-        id: '4',
-        name: '订单创建功能测试',
-        level: 'P0',
-        module_id: 'module2',
-        module_name: '订单管理',
-        status: 'active',
-        updated_at: '2024-01-12T11:45:00Z'
-      },
-      {
-        id: '5',
-        name: '订单支付功能测试',
-        level: 'P1',
-        module_id: 'module2',
-        module_name: '订单管理',
-        status: 'active',
-        updated_at: '2024-01-11T16:30:00Z'
-      }
-    ]
-
-    modules.value = [
-      { id: 'module1', name: '用户管理' },
-      { id: 'module2', name: '订单管理' },
-      { id: 'module3', name: '商品管理' }
-    ]
+    console.log('Loading test cases for project:', props.projectId)
+    
+    // 获取测试用例列表
+    const response = await testcaseApi.getTestCases(props.projectId, {
+      page: 1,
+      page_size: 1000
+    })
+    
+    console.log('Test cases response:', response)
+    
+    if (response.status === 200) {
+      const testCaseData = response.data?.items || response.data || []
+      testCases.value = testCaseData
+      
+      // 提取模块信息
+      const moduleMap = new Map()
+      testCaseData.forEach(tc => {
+        if (tc.module_id && tc.module_name) {
+          moduleMap.set(tc.module_id, { id: tc.module_id, name: tc.module_name })
+        }
+      })
+      modules.value = Array.from(moduleMap.values())
+    }
   } catch (error) {
     console.error('获取测试用例失败:', error)
-    ElMessage.error('获取测试用例失败')
+    ElMessage.error('获取测试用例失败: ' + (error.message || '未知错误'))
   }
 }
 

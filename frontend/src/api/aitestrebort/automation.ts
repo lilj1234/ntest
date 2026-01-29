@@ -102,9 +102,25 @@ export const automationApi = {
     return request.post(`${baseDiraitestrebort}/projects/${projectId}/automation-scripts/${scriptId}/validate`)
   },
 
-  generateScriptFromTestCase: (projectId: number, testcaseId: number, framework: string) => {
-    return request.post(`${baseDiraitestrebort}/projects/${projectId}/testcases/${testcaseId}/generate-script`, {
-      framework
-    })
+  generateScriptFromTestCase: (projectId: number, testcaseId: number, config: {
+    framework?: string
+    language?: string
+    llm_config_id?: number
+  }) => {
+    return request.post(`${baseDiraitestrebort}/projects/${projectId}/testcases/${testcaseId}/generate-script`, config)
+  },
+
+  // 批量生成脚本（按模块）
+  generateScriptsFromModule: (projectId: number, moduleId: number, config: {
+    framework?: string
+    language?: string
+    llm_config_id?: number
+  }) => {
+    return request.post(`${baseDiraitestrebort}/projects/${projectId}/modules/${moduleId}/generate-scripts`, config)
+  },
+
+  // 获取模块下的生成脚本
+  getScriptsByModule: (projectId: number, moduleId: number) => {
+    return request.get(`${baseDiraitestrebort}/projects/${projectId}/modules/${moduleId}/scripts`)
   }
 }

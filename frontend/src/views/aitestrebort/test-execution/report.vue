@@ -249,6 +249,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Document, Download, ArrowLeft } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
+import { getExecutionDetail } from '@/api/aitestrebort/testsuite'
 
 // 获取路由参数
 const route = useRoute()
@@ -298,72 +299,41 @@ const minDuration = computed(() => {
 // 方法
 const loadExecutionData = async () => {
   try {
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    // 调用真实的API获取执行详情
+    const response = await getExecutionDetail(projectId.value, Number(executionId.value))
     
-    execution.value = {
-      id: executionId.value,
-      suite_name: '用户管理功能测试套件',
-      status: 'success',
-      progress: 100,
-      success_count: 12,
-      failed_count: 2,
-      skipped_count: 1,
-      total_count: 15,
-      duration: 180000, // 3分钟
-      executor_name: '张三',
-      start_time: '2024-01-15T10:30:00Z',
-      end_time: '2024-01-15T10:33:00Z',
-      environment: '测试环境'
-    }
-    
-    reportItems.value = [
-      {
-        name: '用户注册功能测试',
-        type: 'testcase',
-        status: 'success',
-        duration: 15000,
-        start_time: '2024-01-15T10:30:00Z',
-        error_message: null,
-        retry_count: 0
-      },
-      {
-        name: '用户登录功能测试',
-        type: 'testcase',
-        status: 'success',
-        duration: 12000,
-        start_time: '2024-01-15T10:30:15Z',
-        error_message: null,
-        retry_count: 0
-      },
-      {
-        name: '用户注册UI自动化测试',
-        type: 'script',
-        status: 'failed',
-        duration: 8000,
-        start_time: '2024-01-15T10:30:30Z',
-        error_message: 'Element not found: #register-button. The element selector "#register-button" could not be located on the page. This might be due to timing issues, incorrect selector, or the element not being rendered yet.',
-        retry_count: 2
-      },
-      {
-        name: '密码重置功能测试',
-        type: 'testcase',
-        status: 'success',
-        duration: 10000,
-        start_time: '2024-01-15T10:30:45Z',
-        error_message: null,
-        retry_count: 0
-      },
-      {
-        name: '用户权限验证测试',
-        type: 'testcase',
-        status: 'failed',
-        duration: 18000,
-        start_time: '2024-01-15T10:31:00Z',
-        error_message: 'Assertion failed: Expected status code 403, but got 200. The permission check did not work as expected.',
-        retry_count: 1
+    if (response.status === 200 && response.data) {
+      const data = response.data
+      
+      execution.value = {
+        id: data.id,
+        suite_name: data.suite_name,
+        status: data.status,
+        progress: data.status === 'completed' ? 100 : 
+                 data.status === 'running' ? 50 : 
+                 data.status === 'failed' ? 100 : 0,
+        success_count: data.passed_count || 0,
+        failed_count: data.failed_count || 0,
+        skipped_count: data.skipped_count || 0,
+        total_count: data.total_count || 0,
+        duration: data.execution_time || 0,
+        executor_name: `用户${data.executor_id}`,
+        start_time: data.started_at,
+        end_time: data.completed_at,
+        environment: '默认环境'
       }
-    ]
+      
+      // 处理测试结果
+      reportItems.value = (data.results || []).map(result => ({
+        name: result.testcase_name,
+        type: 'testcase',
+        status: result.status,
+        duration: result.execution_time || 0,
+        start_time: result.started_at,
+        error_message: result.error_message,
+        retry_count: 0 // 后端暂时没有重试次数字段
+      }))
+    }
     
     // 初始化图表
     await nextTick()

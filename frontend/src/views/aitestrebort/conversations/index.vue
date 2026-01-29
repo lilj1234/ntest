@@ -123,6 +123,7 @@
                     size="small"
                     style="margin-right: 10px"
                   />
+                  
                   <el-button size="small" @click="clearMessages">清空对话</el-button>
                   <el-button size="small" @click="showExportDialog = true">导出对话</el-button>
                 </div>
@@ -224,6 +225,7 @@
                   <OptimizedMessageContent 
                     :content="message.content"
                     :is-streaming="message.isStreaming"
+                    :loading="message.loading"
                     :role="message.role"
                   />
                 </div>
@@ -393,7 +395,7 @@ import {
   Plus, Search, MoreFilled, User, MagicStick, Loading, Collection, Document, Setting, Refresh
 } from '@element-plus/icons-vue'
 import { globalApi, type GlobalConversation, type GlobalLLMConfig, type GlobalPrompt } from '@/api/aitestrebort/global'
-import { useOptimizedStreamChat } from '@/composables/useOptimizedStreamChat'
+import { useConversationWebSocket } from '@/composables/useConversationWebSocket'
 import OptimizedMessageContent from './components/MessageRenderer.vue'
 import { useRoute } from 'vue-router'
 import { projectApi } from '@/api/aitestrebort/project'
@@ -439,6 +441,8 @@ interface ConversationMessage {
   content: string
   created_at: string
   isStreaming?: boolean
+  loading?: boolean  // 参考FastapiAdmin
+  collapsed?: boolean  // 参考FastapiAdmin
 }
 
 interface LLMConfig {
@@ -478,20 +482,34 @@ const llmConfigs = ref<LLMConfig[]>([])
 const prompts = ref<GlobalPrompt[]>([])
 const messagesContainer = ref()
 
-// 流式响应 - 使用优化版本
+// WebSocket聊天
 const { 
-  isStreaming, 
-  streamContent, 
-  sendOptimizedStreamMessage, 
-  stopOptimizedStream,
-  getPerformanceMetrics 
-} = useOptimizedStreamChat({
-  enableBatching: true,
-  batchSize: 8,
-  batchDelay: 30,
-  enableCompression: true,
-  maxRetries: 3
+  isConnected: wsConnected,
+  isConnecting: wsConnecting,
+  connectionStatus: wsStatus,
+  connect: wsConnect,
+  disconnect: wsDisconnect,
+  sendMessage: wsSendMessage,
+  onMessage: wsOnMessage,
+  switchConversation: wsSwitchConversation
+} = useConversationWebSocket({
+  autoReconnect: true,
+  reconnectInterval: 3000,
+  maxReconnectAttempts: 5,
+  onConnected: () => {
+    console.log('WebSocket connected')
+  },
+  onDisconnected: () => {
+    console.log('WebSocket disconnected')
+  },
+  onError: (error) => {
+    console.error('WebSocket error:', error)
+    ElMessage.error(error)
+  }
 })
+
+// 流式状态
+const isStreaming = ref(false)
 
 // Token使用监控
 const contextInfo = ref<{
@@ -584,6 +602,22 @@ const selectConversation = async (conversation: Conversation) => {
   // 初始化当前对话的提示词设置
   currentPromptId.value = conversation.prompt_id || null
   await loadMessages(conversation.id)
+  
+  // 连接到对话的WebSocket（如果启用流式模式）
+  if (isStreamMode.value) {
+    try {
+      const projectId = conversation.project_id || defaultProjectId.value
+      await wsSwitchConversation(projectId, conversation.id)
+      
+      // 设置消息监听器
+      wsOnMessage((data: string) => {
+        handleWebSocketMessage(data)
+      })
+    } catch (error) {
+      console.error('Failed to connect WebSocket:', error)
+      // WebSocket连接失败不影响其他功能，只是无法使用流式模式
+    }
+  }
 }
 
 const handleKnowledgeChange = (value: boolean) => {
@@ -620,6 +654,43 @@ const loadMessages = async (conversationId: number) => {
   }
 }
 
+// 处理WebSocket消息
+const handleWebSocketMessage = (data: string) => {
+  try {
+    // 尝试解析JSON消息
+    const jsonData = JSON.parse(data)
+    if (jsonData.type === 'error') {
+      ElMessage.error(jsonData.message)
+      return
+    }
+    if (jsonData.type === 'connected') {
+      return
+    }
+  } catch {
+    // 不是JSON，直接作为内容处理
+  }
+
+  // 查找最后一个助手消息
+  const lastMessage = messages.value[messages.value.length - 1]
+
+  if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
+    // 累积流式响应内容
+    lastMessage.content += data
+    lastMessage.loading = false  // 收到第一个内容后取消loading状态
+    
+    // 强制触发响应式更新
+    const index = messages.value.findIndex(m => m === lastMessage)
+    if (index !== -1) {
+      messages.value[index] = { ...lastMessage }
+    }
+    
+    // 滚动到底部
+    nextTick(() => {
+      scrollToBottom()
+    })
+  }
+}
+
 const sendMessage = async () => {
   if (!messageInput.value.trim() || !selectedConversation.value) return
   
@@ -641,60 +712,64 @@ const sendMessage = async () => {
   })
   
   if (isStreamMode.value) {
-    // 流式响应
+    // WebSocket流式模式
+    // 添加加载中的助手消息
     const aiMessage: ConversationMessage = {
       id: Date.now() + 1,
       conversation_id: selectedConversation.value.id,
       role: 'assistant',
-      content: '正在思考中...',  // 初始显示思考中
+      content: '',
       created_at: new Date().toISOString(),
-      isStreaming: true
+      isStreaming: true,
+      loading: true
     }
     messages.value.push(aiMessage)
     
-    // 立即滚动到底部显示"思考中"
+    isStreaming.value = true
+    
+    // 立即滚动到底部
     nextTick(() => {
       scrollToBottom()
     })
     
-    let hasReceivedContent = false  // 标记是否已接收到内容
-    
-    sendOptimizedStreamMessage(
-      selectedConversation.value.id,
-      content,
-      (chunk: string) => {
-        // 接收内容块
-        if (!hasReceivedContent) {
-          // 第一次接收到内容时，清空"思考中"
-          aiMessage.content = chunk
-          hasReceivedContent = true
-        } else {
-          aiMessage.content += chunk
-        }
-        nextTick(() => {
-          scrollToBottom()
-        })
-      },
-      (messageId: number, totalContent: string) => {
-        // 完成
-        aiMessage.id = messageId
-        aiMessage.content = totalContent
-        aiMessage.isStreaming = false
+    try {
+      // 确保WebSocket已连接
+      if (!wsConnected.value) {
+        const projectId = selectedConversation.value.project_id || defaultProjectId.value
+        await wsConnect(projectId, selectedConversation.value.id)
         
-        // 输出性能指标
-        const metrics = getPerformanceMetrics()
-        console.log('Message rendering performance:', metrics)
-      },
-      (error: string) => {
-        // 错误
-        ElMessage.error(error)
-        messages.value.pop() // 移除失败的消息
-      },
-      () => {
-        // 处理中回调 - 后端已开始处理
-        console.log('Backend is processing...')
+        // 设置消息监听器
+        wsOnMessage((data: string) => {
+          handleWebSocketMessage(data)
+        })
       }
-    )
+      
+      // 通过WebSocket发送消息
+      await wsSendMessage(content)
+      
+      // 设置超时，30秒后自动结束流式状态
+      setTimeout(() => {
+        if (aiMessage.isStreaming) {
+          console.warn('Stream timeout, ending streaming state')
+          aiMessage.isStreaming = false
+          aiMessage.loading = false
+          isStreaming.value = false
+          
+          const index = messages.value.findIndex(m => m === aiMessage)
+          if (index !== -1) {
+            messages.value[index] = { ...aiMessage }
+          }
+        }
+      }, 30000)
+      
+    } catch (error) {
+      console.error('Failed to send message:', error)
+      ElMessage.error('发送消息失败: WebSocket未连接')
+      
+      // 移除加载消息
+      messages.value.pop()
+      isStreaming.value = false
+    }
   } else {
     // 非流式响应
     try {
@@ -725,6 +800,7 @@ const clearMessages = async () => {
     }
   } catch (error) {
     if (error !== 'cancel') {
+      console.error('清空对话失败:', error)
       ElMessage.error('清空对话失败')
     }
   }

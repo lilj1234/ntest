@@ -7,7 +7,7 @@ from ..base_model import BaseModel
 
 
 class aitestrebortAutomationScript(BaseModel):
-    """自动化脚本模型"""
+    """自动化脚本模型 - 存储生成的Playwright代码"""
     
     SCRIPT_TYPE_CHOICES = [
         ("playwright_python", "Playwright Python"),
@@ -26,15 +26,22 @@ class aitestrebortAutomationScript(BaseModel):
         ("deprecated", "已废弃"),
     ]
     
-    # 关联功能用例（可选）
+    # 关联功能用例（必须，从功能用例生成的代码）
     test_case = fields.ForeignKeyField(
         "test_platform.aitestrebortTestCase",
-        related_name="automation_scripts",
-        null=True,
-        description="关联功能用例"
+        related_name="generated_scripts",
+        description="关联的功能用例"
     )
     
-    # 来源任务（可选，AI 生成时关联）
+    # 关联测试模块（按模块组织代码）
+    test_module = fields.ForeignKeyField(
+        "test_platform.aitestrebortTestCaseModule",
+        related_name="generated_scripts",
+        null=True,
+        description="所属测试模块"
+    )
+    
+    # 来源任务（AI 生成时关联）
     source_task_id = fields.IntField(null=True, description="来源任务ID")
     
     # 脚本基本信息
@@ -56,16 +63,16 @@ class aitestrebortAutomationScript(BaseModel):
         description="状态"
     )
     
-    # 脚本内容
-    script_content = fields.TextField(description="脚本代码")
+    # Playwright脚本内容
+    script_content = fields.TextField(description="Playwright脚本代码")
     
-    # 原始记录的操作步骤（JSON 格式，用于重新生成或分析）
-    recorded_steps = fields.JSONField(
+    # 原始功能用例信息（用于重新生成）
+    original_steps = fields.JSONField(
         default=list,
-        description="记录的操作步骤"
+        description="原始功能用例步骤"
     )
     
-    # 配置
+    # 生成配置
     target_url = fields.CharField(max_length=2000, null=True, description="目标URL")
     timeout_seconds = fields.IntField(default=30, description="超时时间(秒)")
     headless = fields.BooleanField(default=True, description="无头模式")
@@ -73,23 +80,19 @@ class aitestrebortAutomationScript(BaseModel):
     # 版本管理
     version = fields.IntField(default=1, description="版本号")
     
-    # 兼容旧字段
-    project = fields.ForeignKeyField(
-        "test_platform.aitestrebortProject",
-        related_name="automation_scripts_legacy",
-        null=True,
-        description="所属项目(兼容字段)"
-    )
+    # 项目信息（从test_case.project获取）
     project_id = fields.IntField(description="所属项目ID")
+    
+    # 兼容字段
     framework = fields.CharField(
         max_length=20,
-        null=True,
-        description="测试框架(兼容字段)"
+        default="playwright",
+        description="测试框架"
     )
     language = fields.CharField(
         max_length=20,
         default="python",
-        description="编程语言(兼容字段)"
+        description="编程语言"
     )
     
     # 元信息
@@ -105,10 +108,8 @@ class aitestrebortAutomationScript(BaseModel):
     @property
     async def project(self):
         """获取所属项目"""
-        if self.test_case:
-            test_case = await self.test_case
-            return await test_case.project
-        return await self.project
+        test_case = await self.test_case
+        return await test_case.project
 
 
 class aitestrebortScriptExecution(BaseModel):
@@ -154,20 +155,20 @@ class aitestrebortScriptExecution(BaseModel):
     stack_trace = fields.TextField(null=True, description="堆栈跟踪")
     
     # 截图（JSON 格式存储路径列表）
-    screenshots = fields.JSONField(default=list, description="截图列表")
+    screenshots = fields.JSONField(null=True, description="截图列表")
     
     # 录屏（JSON 格式存储路径列表）
-    videos = fields.JSONField(default=list, description="录屏列表")
+    videos = fields.JSONField(null=True, description="录屏列表")
     
     # 执行环境信息
     browser_type = fields.CharField(max_length=50, default="chromium", description="浏览器类型")
-    viewport = fields.JSONField(default=dict, description="视口大小")
+    viewport = fields.JSONField(null=True, description="视口大小")
     
     # 兼容旧字段
     executor_id = fields.IntField(description="执行人ID")
     environment = fields.CharField(max_length=100, null=True, description="执行环境")
-    parameters = fields.JSONField(default=dict, description="执行参数")
-    result_data = fields.JSONField(default=dict, description="执行结果数据")
+    parameters = fields.JSONField(null=True, description="执行参数")
+    result_data = fields.JSONField(null=True, description="执行结果数据")
     execution_log = fields.TextField(null=True, description="执行日志")
     celery_task_id = fields.CharField(max_length=255, null=True, description="任务ID")
     

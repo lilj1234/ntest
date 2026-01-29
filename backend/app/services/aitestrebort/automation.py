@@ -74,10 +74,17 @@ async def get_automation_scripts(
         # 转换为响应格式
         script_list = []
         for script in scripts:
-            # 暂时不查询执行状态，避免字段不匹配问题
-            # latest_execution = await aitestrebortScriptExecution.filter(
-            #     script=script
-            # ).order_by('-create_time').first()
+            # 获取关联的测试用例和模块信息
+            test_case_name = None
+            module_name = None
+            if script.test_case_id:
+                try:
+                    test_case = await aitestrebortTestCase.get(id=script.test_case_id).prefetch_related('module')
+                    test_case_name = test_case.name
+                    if test_case.module:
+                        module_name = test_case.module.name
+                except:
+                    pass
             
             script_data = {
                 "id": script.id,
@@ -91,7 +98,8 @@ async def get_automation_scripts(
                 "status": getattr(script, 'status', 'active'),
                 "version": getattr(script, 'version', 1),
                 "test_case_id": getattr(script, 'test_case_id', None),
-                "test_case_name": None,  # 暂时不查询测试用例名称
+                "test_case_name": test_case_name,
+                "module_name": module_name,
                 "target_url": getattr(script, 'target_url', ''),
                 "timeout_seconds": getattr(script, 'timeout_seconds', 30),
                 "creator_id": getattr(script, 'creator_id', None),  # 添加creator_id字段

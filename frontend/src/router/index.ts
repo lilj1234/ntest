@@ -28,6 +28,7 @@ import Flowchart from './modules/flowchart'
 
 import Debug from './modules/debug'
 import System from './modules/system'
+import PlaywrightAgents from './modules/playwright-agents'
 import Watermark from "@/utils/watermark";
 
 /**
@@ -37,7 +38,7 @@ import Watermark from "@/utils/watermark";
  **/
 let modules = reactive([
     ...Default, ...Dashboard, ...ApiTest, ...UiTest, ...AppTest, ...Script, ...Tools, ...Assist, ...TestManage,
-    ...Config, ...WHartTest, ...Flowchart, ...System, ...Debug
+    ...Config, ...WHartTest, ...Flowchart, ...PlaywrightAgents, ...System, ...Debug
 ])
 
 const router = createRouter({

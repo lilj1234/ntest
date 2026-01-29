@@ -2,10 +2,6 @@
   <div class="script-generation">
     <el-card class="page-header">
       <div class="header-content">
-        <el-button @click="goBack" style="margin-right: 16px;">
-          <el-icon><ArrowLeft /></el-icon>
-          返回
-        </el-button>
         <div>
           <h2>智能脚本生成</h2>
           <p>基于录制步骤自动生成Playwright测试脚本和测试用例模板</p>

@@ -36,15 +36,6 @@ router.add_post_route("/global/conversations/{conversation_id}/messages", global
 router.add_delete_route("/global/conversations/{conversation_id}/messages", global_service.clear_conversation_messages, summary="清空对话消息")
 router.add_get_route("/global/conversations/{conversation_id}/export", global_service.export_conversation, summary="导出对话")
 
-# 流式对话
-from app.services.aitestrebort import conversation_stream
-router.add_post_route(
-    "/global/conversations/{conversation_id}/messages/stream", 
-    conversation_stream.send_message_stream, 
-    summary="流式发送消息",
-    response_model=None  # 流式响应不需要response_model
-)
-
 # 提示词管理
 from app.services.aitestrebort import prompt as prompt_service
 router.add_get_route("/global/prompts", prompt_service.get_prompts, summary="获取提示词列表")

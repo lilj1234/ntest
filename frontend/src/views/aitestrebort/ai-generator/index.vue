@@ -3,10 +3,6 @@
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="header-left">
-        <el-button @click="$router.push(`/aitestrebort/project/${projectId}/testcase`)" style="margin-right: 16px;">
-          <el-icon><ArrowLeft /></el-icon>
-          返回
-        </el-button>
         <el-breadcrumb separator="/">
           <el-breadcrumb-item @click="$router.push('/aitestrebort/project')">项目管理</el-breadcrumb-item>
           <el-breadcrumb-item @click="$router.push(`/aitestrebort/project/${projectId}/testcase`)">{{ projectName }}</el-breadcrumb-item>

@@ -23,7 +23,8 @@ router.add_post_route("/projects/{project_id}/ai/requirement-sources", ai_servic
 router.add_get_route("/projects/{project_id}/ai/requirement-sources/{source_id}/content", ai_service.get_requirement_source_content, summary="获取需求来源内容")
 
 # AI 自动化脚本生成
-router.add_post_route("/projects/{project_id}/testcases/{testcase_id}/generate-script", ai_service.generate_automation_script_from_testcase, summary="从测试用例生成自动化脚本")
+# 注意：此路由已迁移到 script_generation.py，使用新的实现
+# router.add_post_route("/projects/{project_id}/testcases/{testcase_id}/generate-script", ai_service.generate_automation_script_from_testcase, summary="从测试用例生成自动化脚本")
 
 # AI 生成历史
 router.add_get_route("/projects/{project_id}/ai/generation-history", ai_service.get_generation_history, summary="获取AI生成历史记录")

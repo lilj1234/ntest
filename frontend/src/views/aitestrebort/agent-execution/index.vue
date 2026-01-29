@@ -2,12 +2,8 @@
   <div class="agent-execution">
     <el-card class="page-header">
       <div class="header-content">
-        <el-button @click="goBack" style="margin-right: 16px;">
-          <el-icon><ArrowLeft /></el-icon>
-          返回
-        </el-button>
         <div>
-          <h2>Agent智能执行</h2>
+          <h2>Agent执行</h2>
           <p>基于LangGraph的多步骤智能推理和任务执行系统</p>
         </div>
       </div>

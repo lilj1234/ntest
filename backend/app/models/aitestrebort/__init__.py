@@ -9,7 +9,7 @@ from .project import (
 )
 from .testcase import (
     aitestrebortTestCase, aitestrebortTestCaseStep, aitestrebortTestCaseModule, 
-    aitestrebortTestCaseScreenshot, aitestrebortTestSuite, aitestrebortTestSuiteCase,
+    aitestrebortTestCaseScreenshot, aitestrebortTestSuite, aitestrebortTestSuiteScript,
     aitestrebortTestExecution, aitestrebortTestCaseResult
 )
 from .automation import aitestrebortAutomationScript, aitestrebortScriptExecution
@@ -34,7 +34,7 @@ __all__ = [
     'aitestrebortConversation', 'aitestrebortMessage', 'aitestrebortPrompt',
     # 测试用例管理
     'aitestrebortTestCase', 'aitestrebortTestCaseStep', 'aitestrebortTestCaseModule',
-    'aitestrebortTestCaseScreenshot', 'aitestrebortTestSuite', 'aitestrebortTestSuiteCase',
+    'aitestrebortTestCaseScreenshot', 'aitestrebortTestSuite', 'aitestrebortTestSuiteScript',
     'aitestrebortTestExecution', 'aitestrebortTestCaseResult', 
     # 自动化脚本
     'aitestrebortAutomationScript', 'aitestrebortScriptExecution',

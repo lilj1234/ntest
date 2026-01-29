@@ -3,14 +3,6 @@
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="header-left">
-        <el-button 
-          text 
-          @click="$router.push('/aitestrebort/project')"
-          class="back-button"
-        >
-          <el-icon><ArrowLeft /></el-icon>
-          返回
-        </el-button>
         <el-divider direction="vertical" />
         <el-breadcrumb separator="/">
           <el-breadcrumb-item @click="$router.push('/aitestrebort/project')">项目管理</el-breadcrumb-item>
@@ -19,86 +11,9 @@
         </el-breadcrumb>
       </div>
       <div class="header-right">
-        <el-button-group>
-          <el-button @click="$router.push('/aitestrebort/conversations')">
-            <el-icon><ChatDotRound /></el-icon>
-            LLM 对话
-          </el-button>
-          <el-button @click="$router.push('/aitestrebort/prompts')">
-            <el-icon><Document /></el-icon>
-            提示词
-          </el-button>
-          <el-button @click="$router.push(`/aitestrebort/project/${projectId}/knowledge`)">
-            <el-icon><Collection /></el-icon>
-            知识库
-          </el-button>
-          <el-button @click="$router.push(`/aitestrebort/project/${projectId}/ai-generator`)">
-            <el-icon><MagicStick /></el-icon>
-            AI 生成
-          </el-button>
-          <el-button @click="$router.push(`/aitestrebort/project/${projectId}/automation`)">
-            <el-icon><Setting /></el-icon>
-            自动化脚本
-          </el-button>
-        </el-button-group>
-        
-        <!-- 高级功能下拉菜单 -->
-        <el-dropdown @command="handleAdvancedFeature" style="margin-left: 10px;">
-          <el-button type="success">
-            <el-icon><Star /></el-icon>
-            高级功能
-            <el-icon class="el-icon--right"><ArrowDown /></el-icon>
-          </el-button>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item command="langgraph-orchestration">
-                <el-icon><Link /></el-icon>
-                LangGraph智能编排
-              </el-dropdown-item>
-              <el-dropdown-item command="agent-execution">
-                <el-icon><Setting /></el-icon>
-                Agent智能执行
-              </el-dropdown-item>
-              <el-dropdown-item command="script-generation">
-                <el-icon><EditPen /></el-icon>
-                智能脚本生成
-              </el-dropdown-item>
-              <el-dropdown-item command="requirement-retrieval">
-                <el-icon><Search /></el-icon>
-                智能需求检索
-              </el-dropdown-item>
-              <el-dropdown-item command="quality-assessment">
-                <el-icon><Star /></el-icon>
-                质量评估系统
-              </el-dropdown-item>
-              <el-dropdown-item divided command="requirements">
-                <el-icon><Document /></el-icon>
-                需求管理
-              </el-dropdown-item>
-              <el-dropdown-item command="ai-diagram">
-                <el-icon><PieChart /></el-icon>
-                AI图表生成
-              </el-dropdown-item>
-              <el-dropdown-item command="test-suite">
-                <el-icon><Collection /></el-icon>
-                测试套件管理
-              </el-dropdown-item>
-              <el-dropdown-item command="test-execution">
-                <el-icon><Timer /></el-icon>
-                测试执行历史
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-        
-        <el-button type="primary" @click="showCreateDialog = true" style="margin-left: 10px;">
+        <el-button type="primary" @click="showCreateDialog = true">
           <el-icon><Plus /></el-icon>
           新建用例
-        </el-button>
-        
-        <el-button type="success" @click="showAIGenerateDialog = true" style="margin-left: 10px;">
-          <el-icon><MagicStick /></el-icon>
-          AI 生成
         </el-button>
       </div>
     </div>
@@ -148,7 +63,7 @@
 
       <!-- 右侧用例列表 -->
       <el-col :span="18">
-        <el-card>
+        <el-card class="testcase-list-card">
           <!-- 搜索和筛选 -->
           <div class="search-bar">
             <el-row :gutter="20">
@@ -183,6 +98,10 @@
 
           <!-- 操作栏 -->
           <div class="table-actions">
+            <el-button type="success" @click="showAIGenerateDialog = true">
+              <el-icon><MagicStick /></el-icon>
+              AI 用例生成(在线模式)
+            </el-button>
             <el-button type="success" @click="exportToExcel" :loading="exporting">
               <el-icon><Download /></el-icon>
               导出Excel
@@ -194,15 +113,17 @@
           </div>
 
           <!-- 用例表格 -->
-          <el-table
-            ref="testcaseTableRef"
-            :data="testcases"
-            v-loading="loading"
-            @row-click="handleRowClick"
-            style="cursor: pointer;"
-            border
-            stripe
-          >
+          <div class="table-container">
+            <el-table
+              ref="testcaseTableRef"
+              :data="testcases"
+              v-loading="loading"
+              @row-click="handleRowClick"
+              style="cursor: pointer;"
+              border
+              stripe
+              height="100%"
+            >
             <el-table-column type="index" label="序号" width="80" align="center" />
             
             <el-table-column prop="name" label="用例名称" min-width="250">
@@ -283,7 +204,8 @@
                 <el-button type="text" @click.stop="deleteTestCase(row)" style="color: #f56c6c;">删除</el-button>
               </template>
             </el-table-column>
-          </el-table>
+            </el-table>
+          </div>
 
           <!-- 分页 -->
           <div class="pagination" v-if="total > 0">
@@ -1252,6 +1174,35 @@ onMounted(() => {
 
 .module-tree-card {
   height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+.testcase-list-card {
+  height: calc(100vh - 200px);
+  display: flex;
+  flex-direction: column;
+}
+
+.testcase-list-card :deep(.el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 20px;
+}
+
+.table-container {
+  flex: 1;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.table-container .el-table {
+  height: 100%;
+}
+
+.table-container :deep(.el-table__body-wrapper) {
+  overflow-x: auto;
   overflow-y: auto;
 }
 

@@ -33,7 +33,8 @@ def register_app_hook(app):
         # aitestrebort 集成路由
         from app.routers.aitestrebort import (
             project_router, testcase_router, automation_router, ai_router, 
-            global_router, knowledge_router, requirements_router, orchestrator_router
+            global_router, knowledge_router, requirements_router, orchestrator_router,
+            script_generation_router
         )
         # aitestrebort 高级功能路由
         from app.routers.aitestrebort.advanced_features import router as advanced_features_router
@@ -57,8 +58,34 @@ def register_app_hook(app):
         app.include_router(knowledge_router, prefix='/api', tags=["aitestrebort-知识库管理"])
         app.include_router(requirements_router, prefix='/api', tags=["aitestrebort-需求管理"])
         app.include_router(orchestrator_router, prefix='/api/aitestrebort', tags=["aitestrebort-智能编排"])
+        app.include_router(script_generation_router, prefix='/api/aitestrebort', tags=["aitestrebort-脚本生成"])
         # aitestrebort 高级功能路由
         app.include_router(advanced_features_router, prefix='/api', tags=["aitestrebort-高级功能"])
+        
+        # Playwright Test Agents 路由（使用 Playwright Python API - 最稳定方案）
+        from app.services.playwright_agents import routes as pw_routes
+        from app.routers.base_view import APIRouter
+        from app.routers.playwright_agents import executor, healer
+        
+        pw_router = APIRouter()
+        # 使用 Playwright Python API（最稳定、最简单）
+        pw_router.add_post_route("/playwright-agents/planner/explore", pw_routes.explore_and_plan, summary="探索并生成测试计划")
+        pw_router.add_get_route("/playwright-agents/planner/plans", pw_routes.get_test_plans, summary="获取测试计划列表")
+        pw_router.add_get_route("/playwright-agents/planner/plans/{plan_id}", pw_routes.get_test_plan_detail, summary="获取测试计划详情")
+        pw_router.add_get_route("/playwright-agents/planner/plans/{plan_id}/exploration-steps", pw_routes.get_exploration_steps, summary="获取探索过程步骤")
+        pw_router.add_delete_route("/playwright-agents/planner/plans/{plan_id}", pw_routes.delete_test_plan, summary="删除测试计划")
+        pw_router.add_post_route("/playwright-agents/generator/generate", pw_routes.generate_test_code, summary="生成测试代码")
+        pw_router.add_get_route("/playwright-agents/generator/codes", pw_routes.get_generated_codes, summary="获取生成代码列表")
+        pw_router.add_get_route("/playwright-agents/generator/codes/{code_id}", pw_routes.get_generated_code_detail, summary="获取代码详情")
+        pw_router.add_delete_route("/playwright-agents/generator/codes/{code_id}", pw_routes.delete_generated_code, summary="删除代码")
+        pw_router.add_get_route("/playwright-agents/statistics", pw_routes.get_statistics, summary="获取统计数据")
+        app.include_router(pw_router, prefix='/api', tags=["Playwright Test Agents"])
+        
+        # 注册执行器路由
+        app.include_router(executor.router, prefix='/api', tags=["Playwright Executor"])
+        
+        # 注册自愈修复器路由
+        app.include_router(healer.router, prefix='/api', tags=["Playwright Healer"])
 
         app.logger.info(f'\n\n\n{"*" * 20} 服务【{app.title}】启动完成 {"*" * 20}\n\n\n'"")
         if config.is_linux:

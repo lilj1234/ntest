@@ -696,6 +696,8 @@ onMounted(() => {
 <style scoped>
 .ai-test-case-generator {
   padding: 20px;
+  max-height: 80vh; /* 设置最大高度为视口高度的80% */
+  overflow-y: auto; /* 添加垂直滚动条 */
 }
 
 .generator-card {

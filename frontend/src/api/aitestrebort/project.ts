@@ -198,6 +198,16 @@ export const projectApi = {
     return request.delete(`${baseDiraitestrebort}/projects/${projectId}/members/${memberId}`)
   },
 
+  // 获取项目统计数据
+  getProjectStats: (projectId: number) => {
+    return request.get(`${baseDiraitestrebort}/projects/${projectId}/statistics`)
+  },
+
+  // 获取项目最近活动
+  getProjectActivity: (projectId: number, params?: { limit?: number }) => {
+    return request.get(`${baseDiraitestrebort}/projects/${projectId}/activity`, { params })
+  },
+
   // LLM 配置管理
   getLLMConfigs: (projectId: number, params?: {
     search?: string

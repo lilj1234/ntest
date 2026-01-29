@@ -176,8 +176,8 @@ class aitestrebortKnowledgeQuery(Model):
     response = fields.TextField(null=True, description="响应内容")
     
     # 检索结果
-    retrieved_chunks = fields.JSONField(default=list, description="检索到的分块")
-    similarity_scores = fields.JSONField(default=list, description="相似度分数")
+    retrieved_chunks = fields.JSONField(null=True, description="检索到的分块")
+    similarity_scores = fields.JSONField(null=True, description="相似度分数")
     
     # 性能指标
     retrieval_time = fields.FloatField(null=True, description="检索耗时(秒)")

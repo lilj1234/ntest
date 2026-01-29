@@ -2,40 +2,40 @@
   <template v-if="!menu.hideMenu">
     <el-sub-menu v-if="showMenuType === 2" :index="pathResolve" :show-timeout="0" :hide-timeout="0">
       <template #title>
-        <!-- 使用 Element Plus 图标 -->
-        <el-icon class="el-menu-item-icon">
-          <component :is="getElementIcon(menu.meta.icon)" />
+        <!-- 使用 Element Plus 图标 - 添加key强制刷新 -->
+        <el-icon class="el-menu-item-icon" :key="`icon-${menu.path}-${menu.meta?.icon}`">
+          <component :is="getElementIcon(menu.meta?.icon || 'Setting')" />
         </el-icon>
-        <span>{{ menu.meta.title }}</span>
+        <span>{{ menu.meta?.title }}</span>
       </template>
       <menu-item v-for="(item, key) in menu.children" :key="key" :menu="item" :basePath="pathResolve" />
     </el-sub-menu>
     <app-link v-else-if="showMenuType === 1" :to="pathResolve">
       <el-menu-item :index="pathResolve" v-if="!menu.children[0].children || menu.children[0].children.length === 0">
-        <!-- 使用 Element Plus 图标 -->
-        <el-icon class="el-menu-item-icon">
-          <component :is="getElementIcon(menu.children[0].meta.icon || menu.meta.icon)" />
+        <!-- 使用 Element Plus 图标 - 添加key强制刷新 -->
+        <el-icon class="el-menu-item-icon" :key="`icon-${menu.path}-${menu.children[0].meta?.icon || menu.meta?.icon}`">
+          <component :is="getElementIcon(menu.children[0].meta?.icon || menu.meta?.icon || 'Setting')" />
         </el-icon>
-        <template #title>{{ menu.children[0].meta.title }}</template>
+        <template #title>{{ menu.children[0].meta?.title }}</template>
       </el-menu-item>
       <el-sub-menu v-else :index="pathResolve" :show-timeout="0" :hide-timeout="0">
         <template #title>
-          <!-- 使用 Element Plus 图标 -->
-          <el-icon class="el-menu-item-icon">
-            <component :is="getElementIcon(menu.children[0].meta.icon || menu.meta.icon)" />
+          <!-- 使用 Element Plus 图标 - 添加key强制刷新 -->
+          <el-icon class="el-menu-item-icon" :key="`icon-${menu.path}-${menu.children[0].meta?.icon || menu.meta?.icon}`">
+            <component :is="getElementIcon(menu.children[0].meta?.icon || menu.meta?.icon || 'Setting')" />
           </el-icon>
-          <span>{{ menu.children[0].meta.title }}</span>
+          <span>{{ menu.children[0].meta?.title }}</span>
         </template>
         <menu-item v-for="(item, key) in menu.children[0].children" :key="key" :menu="item" :basePath="pathResolve" />
       </el-sub-menu>
     </app-link>
     <app-link v-else :to="pathResolve">
       <el-menu-item :index="pathResolve">
-        <!-- 使用 Element Plus 图标 -->
-        <el-icon class="el-menu-item-icon">
-          <component :is="getElementIcon(menu.meta.icon)" />
+        <!-- 使用 Element Plus 图标 - 添加key强制刷新 -->
+        <el-icon class="el-menu-item-icon" :key="`icon-${menu.path}-${menu.meta?.icon}`">
+          <component :is="getElementIcon(menu.meta?.icon || 'Setting')" />
         </el-icon>
-        <template #title>{{ menu.meta.title }}</template>
+        <template #title>{{ menu.meta?.title }}</template>
       </el-menu-item>
     </app-link>
   </template>
@@ -179,7 +179,8 @@ export default defineComponent({
         'branchTwo': 'Operation'
       }
       
-      return iconMapping[iconName] || 'Setting'
+      const mappedIcon = iconMapping[iconName] || 'Setting'
+      return mappedIcon
     }
 
     return {

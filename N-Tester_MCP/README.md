@@ -1,122 +1,237 @@
-# MCP 服务测试工具部署
+# N-Tester MCP 增强版
 
-## 项目概述
+> 集成官方 Playwright MCP 的 N-Tester 测试工具
 
-包含两个 MCP (Model Context Protocol) 工具服务：
+## 📋 目录结构
 
-- **ms_mcp_api.py** - MS测试用例工具，提供与MS测试平台的API交互功能
-- **N-Tester_tools.py** - 测试用例工具，提供本地测试用例管理功能
+```
+N-Tester_MCP/
+├── src/                              # 源代码
+│   ├── core/                         # 核心功能
+│   │   ├── N-Tester_tools.py        # 主服务
+│   │   ├── ms_mcp_api.py            # MCP API
+│   │   └── config_enhanced.py       # 配置
+│   ├── integrations/                 # 集成模块
+│   │   └── playwright/              # Playwright 集成
+│   │       ├── enhanced_playwright_integration.py
+│   │       ├── http_bridge.js       # HTTP 桥接服务
+│   │       └── config.json          # Playwright 配置
+│   └── wrappers/                     # 包装器
+│       ├── http_wrapper.py          # HTTP 包装器
+│       └── start_http_wrapper.py    # 启动脚本
+├── scripts/                          # 脚本
+│   ├── start/                       # 启动脚本
+│   │   ├── start-enhanced.bat       # Windows 启动
+│   │   ├── start-enhanced.sh        # Linux 启动
+│   │   ├── stop-services.bat        # Windows 停止
+│   │   └── stop-services.sh         # Linux 停止
+│   └── test/                        # 测试脚本
+├── tests/                            # 单元测试
+├── docs/                             # 文档
+├── config/                           # 配置文件
+├── start.bat / start.sh              # 主启动脚本
+├── install-deps.bat / install-deps.sh # 依赖安装脚本
+└── package.json                      # Node.js 依赖
+```
 
-## 环境要求
+---
 
-- Python 311
-- 网络连接（用于API调用）
-
-## 安装部署
+## 🚀 快速开始
 
 ### 1. 安装依赖
 
 ```bash
-pip install -r requirements.txt
+# Windows
+install-deps.bat
+
+# Linux/Mac
+chmod +x install-deps.sh
+./install-deps.sh
 ```
 
-### 2. 配置说明
+### 2. 配置环境变量
 
-#### N-Tester Tools (N-Tester_tools.py) ✨ 部署直接使用，简单快捷
+复制配置文件并编辑：
 
-- **服务端口**: 8006
-- **后端地址**: `N-Tester_BACKEND_URL`（默认：http://backend:8018）
-- **API密钥**: `N-Tester_API_KEY`（默认：N-Tester-default-mcp-key-2025）
-- 秘钥可直接使用，开发环境或者本地，大胆使用，没关系
-
-**🎉 配置启动：**
 ```bash
-cp .env.example .env  # 已包含默认API Key
-docker-compose up -d   # 直接启动，无需手动配置
+cp config/.env.example config/.env
 ```
 
-**⚠️ 生产环境安全提示：**
-- 系统默认API Key（N-Tester-default-mcp-key-2025）
-- 开发环境可直接使用
-- 生产环境请登录后台删除默认Key并创建新的安全密钥
-
-#### MS测试用例工具 (ms_mcp_api.py)
-
-- **服务端口**: 8007
-- **API地址**: 通过环境变量 `MS_API_HOST` 配置
-- **认证信息**: 通过环境变量 `MS_ACCESS_KEY` 和 `MS_SECRET_KEY` 配置
+编辑 `config/.env` 文件，设置必要的环境变量。
 
 ### 3. 启动服务
 
-#### 启动MS测试用例工具
+```bash
+# Windows
+start.bat
+
+# Linux/Mac
+chmod +x start.sh
+./start.sh
+```
+
+### 4. 访问服务
+
+- **Playwright MCP**: http://127.0.0.1:3000
+- **N-Tester MCP**: http://127.0.0.1:8006
+
+---
+
+## 📖 使用指南
+
+### 启动服务
 
 ```bash
-python ms_mcp_api.py
+# 方法 1: 使用主启动脚本
+./start.sh  # 或 start.bat
+pip install -r requirements.txt
+
+# 方法 2: 使用详细启动脚本
+./scripts/start/start-enhanced.sh  # 或 start-enhanced.bat
 ```
 
-服务将在 `http://127.0.0.1:8007` 启动
-
-#### 启动测试用例工具
+### 停止服务
 
 ```bash
-python N-Tester_tools.py
+# 方法 1: 按 Ctrl+C（如果在前台运行）
+
+# 方法 2: 使用停止脚本
+./scripts/start/stop-services.sh  # 或 stop-services.bat
 ```
 
-服务将在 `http://0.0.0.0:8006` 启动
+### 测试服务
 
-## 功能说明
+```bash
+# 测试目录结构
+./test-new-structure.bat
 
-### MS测试用例工具功能
+# 测试 Playwright MCP 桥接
+node scripts/test/test_bridge_service.js
 
-- 获取项目名称和ID
-- 获取模块名称和ID
-- 获取用例等级信息
-- 生成测试用例步骤数据
-- 保存功能测试用例
-
-### 测试用例工具功能
-
-- 获取项目列表
-- 获取模块信息
-- 获取用例等级
-- 获取用例列表和详情
-- 保存操作截图
-- 保存功能测试用例
-
-## MCP 集成
-
-这些工具基于 FastMCP 框架构建，可以与支持 MCP 协议的客户端集成使用。
-
-### 连接配置
-
-在 MCP 客户端中配置连接：
-
-```json
-{
-  "mcpServers": {
-    "ms-testcase-tools": {
-      "command": "python",
-      "args": ["path/to/ms_mcp_api.py"],
-      "env": {}
-    },
-    "testauto-tools": {
-      "command": "python",
-      "args": ["path/to/N-Tester_tools.py"],
-      "env": {}
-    }
-  }
-}
+# 测试工具列表
+python scripts/test/test_list_playwright_tools.py
 ```
 
-## 注意事项
+---
 
-1. 确保目标API服务可访问
-2. 检查防火墙设置，确保端口8006和8007可用
-3. 如需修改配置，请直接编辑源码中的配置参数
-4. 建议在生产环境中使用环境变量管理敏感信息
+## 🔧 配置说明
 
-## 故障排除
+### 环境变量
 
-- 如果服务启动失败，检查端口是否被占用
-- 如果API调用失败，检查网络连接和API地址
-- 查看控制台输出获取详细错误信息
+在 `config/.env` 文件中配置：
+
+```bash
+# 后端地址
+N-Tester_BACKEND_URL=http://127.0.0.1:8018
+
+# API Key
+N-Tester_API_KEY=your_api_key_here
+
+# Playwright MCP 地址
+PLAYWRIGHT_MCP_URL=http://127.0.0.1:3000
+```
+
+### Playwright 配置
+
+在 `src/integrations/playwright/config.json` 中配置 Playwright 选项。
+
+---
+
+## 📝 开发指南
+
+### 添加新的集成
+
+1. 在 `src/integrations/` 下创建新目录
+2. 实现集成逻辑
+3. 更新启动脚本
+
+示例：添加 filesystem-mcp
+
+```bash
+mkdir -p src/integrations/filesystem
+# 添加集成代码
+```
+
+### 运行测试
+
+```bash
+# 运行所有测试
+python -m pytest tests/
+
+# 运行特定测试
+python tests/test_playwright_example.py
+```
+
+---
+
+## 🐛 故障排除
+
+### 问题 1: 端口被占用
+
+**症状**: 启动时提示端口 3000 或 8006 被占用
+
+**解决方案**:
+```bash
+# Windows
+netstat -ano | findstr :3000
+taskkill /PID <PID> /F
+
+# Linux
+lsof -i :3000
+kill -9 <PID>
+```
+
+### 问题 2: 找不到模块
+
+**症状**: Python 提示 ModuleNotFoundError
+
+**解决方案**:
+```bash
+# 重新安装依赖
+./install-deps.sh
+```
+
+### 问题 3: Node.js 模块未找到
+
+**症状**: Node.js 提示 Cannot find module
+
+**解决方案**:
+```bash
+# 安装 Node.js 依赖
+npm install
+```
+
+---
+
+---
+
+## 🤝 贡献
+
+欢迎贡献代码！请遵循以下步骤：
+
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启 Pull Request
+
+---
+
+## 📄 许可证
+
+MIT License
+
+---
+
+## 📞 支持
+
+如有问题，请：
+1. 提交 Issue
+
+---
+
+## 🎉 致谢
+
+- [Playwright](https://playwright.dev/) - 官方 Playwright MCP
+- [FastMCP](https://github.com/jlowin/fastmcp) - MCP 框架
+- [FastAPI](https://fastapi.tiangolo.com/) - HTTP API 框架

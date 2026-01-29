@@ -154,7 +154,10 @@ class aitestrebortTestSuiteSchema(BaseModel):
     description: Optional[str] = Field(None, description="套件描述")
     project_id: int = Field(..., description="所属项目ID")
     creator_id: Optional[int] = Field(None, description="创建人ID")
-    max_concurrent_tasks: int = Field(1, description="最大并发数")
+    parallel_count: int = Field(1, description="并行数量")
+    timeout: int = Field(300, description="超时时间(秒)")
+    status: str = Field("active", description="状态")
+    last_execution: Optional[datetime] = Field(None, description="最后执行时间")
     create_time: Optional[datetime] = None
     update_time: Optional[datetime] = None
     
@@ -170,16 +173,21 @@ class aitestrebortTestSuiteCreateSchema(BaseModel):
     """创建测试套件模式"""
     name: str = Field(..., max_length=255, description="套件名称")
     description: Optional[str] = Field(None, description="套件描述")
+    project_id: int = Field(..., description="所属项目ID")
+    max_concurrent_tasks: Optional[int] = Field(1, description="最大并发数")
+    timeout: Optional[int] = Field(300, description="超时时间(秒)")
+    status: Optional[str] = Field("active", description="状态")
     testcase_ids: Optional[List[int]] = Field([], description="测试用例ID列表")
-    max_concurrent_tasks: int = Field(1, description="最大并发数")
 
 
 class aitestrebortTestSuiteUpdateSchema(BaseModel):
     """更新测试套件模式"""
     name: Optional[str] = Field(None, max_length=255, description="套件名称")
     description: Optional[str] = Field(None, description="套件描述")
-    testcase_ids: Optional[List[int]] = Field(None, description="测试用例ID列表")
     max_concurrent_tasks: Optional[int] = Field(None, description="最大并发数")
+    timeout: Optional[int] = Field(None, description="超时时间(秒)")
+    status: Optional[str] = Field(None, description="状态")
+    testcase_ids: Optional[List[int]] = Field(None, description="测试用例ID列表")
 
 
 class aitestrebortTestCaseStepUpdateSchema(BaseModel):

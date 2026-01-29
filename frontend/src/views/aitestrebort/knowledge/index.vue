@@ -1,27 +1,26 @@
 ﻿<template>
   <div class="knowledge-management">
     <!-- 页面头部 -->
-    <div v-if="!selectedKnowledgeBase" class="page-header">
-      <div class="header-left">
-        <el-button @click="$router.push(`/aitestrebort/project/${projectId}/testcase`)" style="margin-right: 16px;">
-          <el-icon><ArrowLeft /></el-icon>
-          返回
-        </el-button>
-        <h1 class="page-title">知识库管理</h1>
-      </div>
-      <div class="header-right">
-        <el-button @click="showSystemStatus">
-          <el-icon><Document /></el-icon>
-          系统状态
-        </el-button>
-        <el-button @click="showGlobalConfigDialog = true">
-          <el-icon><Setting /></el-icon>
-          全局配置
-        </el-button>
-        <el-button type="primary" @click="showCreateDialog = true">
-          <el-icon><Plus /></el-icon>
-          新建知识库
-        </el-button>
+    <div class="page-header">
+      <div class="header-content">
+        <div>
+          <h1 class="page-title">知识库管理</h1>
+          <p class="page-description">管理项目相关的知识文档和资料</p>
+        </div>
+        <div class="header-actions">
+          <el-button @click="showSystemStatus">
+            <el-icon><Document /></el-icon>
+            系统状态
+          </el-button>
+          <el-button @click="showGlobalConfigDialog = true">
+            <el-icon><Setting /></el-icon>
+            全局配置
+          </el-button>
+          <el-button type="primary" @click="showCreateDialog = true">
+            <el-icon><Plus /></el-icon>
+            新建知识库
+          </el-button>
+        </div>
       </div>
     </div>
 
@@ -55,59 +54,61 @@
             </div>
 
             <!-- 知识库表格 -->
-            <el-table :data="knowledgeBases" v-loading="loading" @row-click="selectKnowledgeBase">
-              <el-table-column prop="name" label="知识库名称" min-width="200">
-                <template #default="{ row }">
-                  <el-link @click="selectKnowledgeBase(row)" :underline="false">{{ row.name }}</el-link>
-                </template>
-              </el-table-column>
-              <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip>
-                <template #default="{ row }">
-                  {{ row.description || '暂无描述' }}
-                </template>
-              </el-table-column>
-              <el-table-column prop="is_active" label="状态" width="100" align="center">
-                <template #default="{ row }">
-                  <el-tag :type="row.is_active ? 'success' : 'danger'" size="small">
-                    {{ row.is_active ? '启用' : '禁用' }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column label="统计" width="120" align="center">
-                <template #default="{ row }">
-                  <div class="stats-cell">
-                    <div>文档: {{ row.document_count || 0 }}</div>
-                    <div>分块: {{ row.chunk_count || 0 }}</div>
-                  </div>
-                </template>
-              </el-table-column>
-              <el-table-column prop="creator_name" label="创建者" width="100" align="center" />
-              <el-table-column prop="created_at" label="创建时间" width="150" align="center">
-                <template #default="{ row }">
-                  {{ formatDate(row.created_at) }}
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="200" fixed="right" align="center">
-                <template #default="{ row }">
-                  <el-button type="text" @click.stop="editKnowledgeBase(row)">编辑</el-button>
-                  <el-button type="text" @click.stop="viewStatistics(row)">统计</el-button>
-                  <el-button type="text" @click.stop="deleteKnowledgeBase(row)" style="color: #f56c6c;">删除</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
+            <el-card class="table-card">
+              <el-table :data="knowledgeBases" v-loading="loading" @row-click="selectKnowledgeBase">
+                <el-table-column prop="name" label="知识库名称" min-width="200">
+                  <template #default="{ row }">
+                    <el-link @click="selectKnowledgeBase(row)" :underline="false">{{ row.name }}</el-link>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip>
+                  <template #default="{ row }">
+                    {{ row.description || '暂无描述' }}
+                  </template>
+                </el-table-column>
+                <el-table-column prop="is_active" label="状态" width="100" align="center">
+                  <template #default="{ row }">
+                    <el-tag :type="row.is_active ? 'success' : 'danger'" size="small">
+                      {{ row.is_active ? '启用' : '禁用' }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="统计" width="120" align="center">
+                  <template #default="{ row }">
+                    <div class="stats-cell">
+                      <div>文档: {{ row.document_count || 0 }}</div>
+                      <div>分块: {{ row.chunk_count || 0 }}</div>
+                    </div>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="creator_name" label="创建者" width="100" align="center" />
+                <el-table-column prop="created_at" label="创建时间" width="150" align="center">
+                  <template #default="{ row }">
+                    {{ formatDate(row.created_at) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="200" fixed="right" align="center">
+                  <template #default="{ row }">
+                    <el-button type="text" @click.stop="editKnowledgeBase(row)">编辑</el-button>
+                    <el-button type="text" @click.stop="viewStatistics(row)">统计</el-button>
+                    <el-button type="text" @click.stop="deleteKnowledgeBase(row)" style="color: #f56c6c;">删除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
 
-            <!-- 分页 -->
-            <div class="pagination" v-if="total > 0">
-              <el-pagination
-                v-model:current-page="searchForm.page"
-                v-model:page-size="searchForm.page_size"
-                :total="total"
-                :page-sizes="[10, 20, 50, 100]"
-                layout="total, sizes, prev, pager, next, jumper"
-                @size-change="loadKnowledgeBases"
-                @current-change="loadKnowledgeBases"
-              />
-            </div>
+              <!-- 分页 -->
+              <div class="pagination-container" v-if="total > 0">
+                <el-pagination
+                  v-model:current-page="searchForm.page"
+                  v-model:page-size="searchForm.page_size"
+                  :total="total"
+                  :page-sizes="[10, 20, 50, 100]"
+                  layout="total, sizes, prev, pager, next, jumper"
+                  @size-change="loadKnowledgeBases"
+                  @current-change="loadKnowledgeBases"
+                />
+              </div>
+            </el-card>
           </el-tab-pane>
           
           <el-tab-pane label="系统统计" name="statistics">
@@ -521,27 +522,37 @@ onMounted(() => {
 
 <style scoped>
 .knowledge-management {
-  padding: 16px;
+  padding: 24px;
+  background-color: #f5f7fa;
+  min-height: 100%;
 }
 
 .page-header {
+  margin-bottom: 24px;
+}
+
+.header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #ebeef5;
 }
 
-.header-left {
-  flex: 1;
-  display: flex;
-  align-items: center;
+.page-title {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #303133;
 }
 
-.header-right {
+.page-description {
+  margin: 0;
+  color: #606266;
+  font-size: 14px;
+}
+
+.header-actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
 }
 
 .content-container {
@@ -549,12 +560,6 @@ onMounted(() => {
   display: flex;
   gap: 20px;
   overflow: hidden;
-  margin-top: 0;
-}
-
-/* 当没有页面标题时，调整内容容器的上边距 */
-.knowledge-management:has(.detail-panel-full) .content-container {
-  margin-top: 20px;
 }
 
 .knowledge-base-list {
@@ -587,6 +592,11 @@ onMounted(() => {
   gap: 12px;
 }
 
+.table-card {
+  background: white;
+  margin-bottom: 16px;
+}
+
 .stats-cell {
   font-size: 12px;
   color: #666;
@@ -601,9 +611,9 @@ onMounted(() => {
   overflow: auto;
 }
 
-.pagination {
-  margin-top: 20px;
+.pagination-container {
   display: flex;
   justify-content: center;
+  margin-top: 20px;
 }
 </style>

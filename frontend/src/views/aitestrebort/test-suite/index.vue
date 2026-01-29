@@ -3,13 +3,9 @@
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="header-left">
-        <el-button @click="goBack" style="margin-right: 16px;">
-          <el-icon><ArrowLeft /></el-icon>
-          返回
-        </el-button>
         <div>
           <h1 class="page-title">测试套件管理</h1>
-          <p class="page-description">创建和管理测试套件，支持批量执行测试用例和自动化脚本</p>
+          <p class="page-description">创建和管理测试套件，支持批量执行自动化脚本</p>
         </div>
       </div>
       <div class="header-right">
@@ -58,7 +54,7 @@
         <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
         <el-table-column prop="test_case_count" label="用例数量" width="100" align="center">
           <template #default="{ row }">
-            <el-tag size="small">{{ row.test_case_count || 0 }}</el-tag>
+            <el-tag size="small" type="info">{{ row.test_case_count || 0 }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="script_count" label="脚本数量" width="100" align="center">
@@ -138,9 +134,9 @@
         <el-form-item label="执行配置">
           <el-row :gutter="16">
             <el-col :span="12">
-              <el-form-item label="并发数" prop="parallel_count">
+              <el-form-item label="并发数" prop="max_concurrent_tasks">
                 <el-input-number
-                  v-model="suiteForm.parallel_count"
+                  v-model="suiteForm.max_concurrent_tasks"
                   :min="1"
                   :max="10"
                   placeholder="并发执行数量"
@@ -196,7 +192,7 @@
                 {{ selectedSuite.status === 'active' ? '启用' : '禁用' }}
               </el-tag>
             </el-descriptions-item>
-            <el-descriptions-item label="并发数">{{ selectedSuite.parallel_count }}</el-descriptions-item>
+            <el-descriptions-item label="并发数">{{ selectedSuite.max_concurrent_tasks }}</el-descriptions-item>
             <el-descriptions-item label="超时时间">{{ selectedSuite.timeout }}秒</el-descriptions-item>
             <el-descriptions-item label="创建者">{{ selectedSuite.creator_name }}</el-descriptions-item>
             <el-descriptions-item label="创建时间">{{ formatDate(selectedSuite.created_at) }}</el-descriptions-item>
@@ -204,31 +200,6 @@
           <div class="description-content">
             <strong>描述：</strong>{{ selectedSuite.description }}
           </div>
-        </div>
-
-        <!-- 测试用例 -->
-        <div class="detail-section">
-          <div class="section-header">
-            <h4>测试用例 ({{ testCases.length }})</h4>
-            <el-button @click="showSelectTestCasesDialog = true">
-              <el-icon><Plus /></el-icon>
-              添加用例
-            </el-button>
-          </div>
-          <el-table :data="testCases" size="small">
-            <el-table-column prop="name" label="用例名称" min-width="200" />
-            <el-table-column prop="level" label="优先级" width="100" align="center">
-              <template #default="{ row }">
-                <el-tag :type="getLevelColor(row.level)" size="small">{{ row.level }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="module_name" label="所属模块" width="150" />
-            <el-table-column label="操作" width="100" align="center">
-              <template #default="{ row }">
-                <el-button type="text" @click="removeTestCase(row)" style="color: #f56c6c;">移除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
         </div>
 
         <!-- 自动化脚本 -->
@@ -276,20 +247,19 @@
       </div>
     </el-dialog>
 
-    <!-- 选择测试用例对话框 -->
-    <TestCaseSelector
-      v-model="showSelectTestCasesDialog"
-      :project-id="projectId"
-      :selected-cases="testCases"
-      @confirm="handleTestCasesSelected"
-    />
-
     <!-- 选择脚本对话框 -->
     <ScriptSelector
       v-model="showSelectScriptsDialog"
       :project-id="projectId"
       :selected-scripts="scripts"
       @confirm="handleScriptsSelected"
+    />
+
+    <!-- 执行配置对话框 -->
+    <ExecutionConfigDialog
+      v-model="showExecutionConfigDialog"
+      :suite="selectedSuite"
+      @confirm="handleExecutionConfig"
     />
 
     <!-- 执行进度对话框 -->
@@ -308,9 +278,20 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Plus, Search, VideoPlay, Clock, ArrowLeft
 } from '@element-plus/icons-vue'
-import TestCaseSelector from './components/TestCaseSelector.vue'
 import ScriptSelector from './components/ScriptSelector.vue'
 import ExecutionProgressDialog from './components/ExecutionProgressDialog.vue'
+import ExecutionConfigDialog from './components/ExecutionConfigDialog.vue'
+import {
+  getTestSuites,
+  createTestSuite,
+  updateTestSuite,
+  deleteTestSuite,
+  getTestSuiteDetail,
+  addScriptsToSuite,
+  removeScriptFromSuite,
+  getSuiteScripts,
+  executeTestSuite
+} from '@/api/aitestrebort/testsuite'
 
 // 获取项目ID
 const route = useRoute()
@@ -332,12 +313,11 @@ const goBack = () => {
 }
 const showCreateDialog = ref(false)
 const showDetailDialog = ref(false)
-const showSelectTestCasesDialog = ref(false)
 const showSelectScriptsDialog = ref(false)
+const showExecutionConfigDialog = ref(false)
 const showExecutionDialog = ref(false)
 
 const testSuites = ref([])
-const testCases = ref([])
 const scripts = ref([])
 const total = ref(0)
 const selectedSuite = ref(null)
@@ -356,7 +336,7 @@ const searchForm = reactive({
 const suiteForm = reactive({
   name: '',
   description: '',
-  parallel_count: 1,
+  max_concurrent_tasks: 1,
   timeout: 300,
   status: 'active'
 })
@@ -378,38 +358,20 @@ const formRef = ref()
 const loadTestSuites = async () => {
   loading.value = true
   try {
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 500))
+    const response = await getTestSuites({
+      project_id: projectId.value,
+      search: searchForm.search || undefined,
+      status: searchForm.status || undefined,
+      page: searchForm.page,
+      page_size: searchForm.page_size
+    })
     
-    testSuites.value = [
-      {
-        id: '1',
-        name: '用户管理功能测试套件',
-        description: '包含用户注册、登录、权限管理等功能的测试用例',
-        test_case_count: 15,
-        script_count: 8,
-        status: 'active',
-        parallel_count: 2,
-        timeout: 300,
-        last_execution: '2024-01-15T10:30:00Z',
-        creator_name: '张三',
-        created_at: '2024-01-10T09:00:00Z'
-      },
-      {
-        id: '2',
-        name: '订单流程测试套件',
-        description: '涵盖订单创建、支付、发货、退款等完整流程',
-        test_case_count: 25,
-        script_count: 12,
-        status: 'active',
-        parallel_count: 3,
-        timeout: 600,
-        last_execution: '2024-01-14T14:20:00Z',
-        creator_name: '李四',
-        created_at: '2024-01-08T11:30:00Z'
-      }
-    ]
-    total.value = testSuites.value.length
+    if (response.status === 200) {
+      testSuites.value = response.data.items
+      total.value = response.data.total
+    } else {
+      ElMessage.error(response.message || '获取测试套件失败')
+    }
   } catch (error) {
     console.error('获取测试套件失败:', error)
     ElMessage.error('获取测试套件失败')
@@ -423,10 +385,20 @@ const handleSearch = () => {
   loadTestSuites()
 }
 
-const viewSuite = (suite) => {
-  selectedSuite.value = suite
-  loadSuiteDetails(suite.id)
-  showDetailDialog.value = true
+const viewSuite = async (suite) => {
+  try {
+    const response = await getTestSuiteDetail(suite.id, projectId.value)
+    if (response.status === 200) {
+      selectedSuite.value = response.data
+      scripts.value = response.data.scripts || []
+      showDetailDialog.value = true
+    } else {
+      ElMessage.error(response.message || '获取套件详情失败')
+    }
+  } catch (error) {
+    console.error('获取套件详情失败:', error)
+    ElMessage.error('获取套件详情失败')
+  }
 }
 
 const editSuite = (suite) => {
@@ -434,7 +406,7 @@ const editSuite = (suite) => {
   Object.assign(suiteForm, {
     name: suite.name,
     description: suite.description,
-    parallel_count: suite.parallel_count,
+    max_concurrent_tasks: suite.max_concurrent_tasks,
     timeout: suite.timeout,
     status: suite.status
   })
@@ -453,38 +425,52 @@ const deleteSuite = async (suite) => {
       }
     )
     
-    ElMessage.success('测试套件删除成功')
-    await loadTestSuites()
+    const response = await deleteTestSuite(suite.id, projectId.value)
+    if (response.status === 200) {
+      // 后端已经通过request拦截器显示了成功消息，这里不再重复显示
+      await loadTestSuites()
+    } else {
+      // 错误消息也已经通过request拦截器显示了，这里只处理业务逻辑
+      console.error('删除失败:', response.message)
+    }
   } catch (error) {
     if (error !== 'cancel') {
       console.error('删除测试套件失败:', error)
+      // 网络错误等异常情况才显示错误消息
       ElMessage.error('删除测试套件失败')
     }
   }
 }
 
 const executeSuite = async (suite) => {
+  selectedSuite.value = suite
+  showExecutionConfigDialog.value = true
+}
+
+const handleExecutionConfig = async (config) => {
+  if (!selectedSuite.value) return
+  
   try {
-    await ElMessageBox.confirm(
-      `确定要执行测试套件 "${suite.name}" 吗？`,
-      '确认执行',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'info'
-      }
-    )
+    const response = await executeTestSuite(selectedSuite.value.id, projectId.value, {
+      ...config,
+      max_concurrent_tasks: config.max_concurrent_tasks,
+      timeout: config.timeout,
+      environment: config.environment,
+      mcp_config_id: config.mcp_config_id,
+      browser: config.browser,
+      headless: config.headless
+    })
     
-    // 模拟开始执行
-    currentExecutionId.value = `exec_${Date.now()}`
-    showExecutionDialog.value = true
-    
-    ElMessage.success('测试套件开始执行')
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error('执行测试套件失败:', error)
-      ElMessage.error('执行测试套件失败')
+    if (response.status === 200) {
+      currentExecutionId.value = response.data.execution_id || `exec_${Date.now()}`
+      showExecutionDialog.value = true
+      ElMessage.success('测试套件开始执行')
+    } else {
+      ElMessage.error(response.message || '执行失败')
     }
+  } catch (error) {
+    console.error('执行测试套件失败:', error)
+    ElMessage.error('执行测试套件失败')
   }
 }
 
@@ -505,19 +491,33 @@ const handleSubmit = async () => {
     await formRef.value.validate()
     submitting.value = true
     
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    if (editingSuite.value) {
-      ElMessage.success('测试套件更新成功')
-    } else {
-      ElMessage.success('测试套件创建成功')
+    const formData = {
+      project_id: projectId.value,
+      name: suiteForm.name,
+      description: suiteForm.description,
+      max_concurrent_tasks: suiteForm.max_concurrent_tasks,
+      timeout: suiteForm.timeout,
+      status: suiteForm.status
     }
     
-    showCreateDialog.value = false
-    await loadTestSuites()
+    let response
+    if (editingSuite.value) {
+      response = await updateTestSuite(editingSuite.value.id, projectId.value, formData)
+    } else {
+      response = await createTestSuite(formData)
+    }
+    
+    if (response.status === 200) {
+      // 后端已经通过request拦截器显示了成功消息，这里不再重复显示
+      showCreateDialog.value = false
+      await loadTestSuites()
+    } else {
+      // 错误消息也已经通过request拦截器显示了，这里只处理业务逻辑
+      console.error('操作失败:', response.message)
+    }
   } catch (error) {
     console.error('操作失败:', error)
+    // 网络错误等异常情况才显示错误消息
     ElMessage.error('操作失败')
   } finally {
     submitting.value = false
@@ -529,7 +529,7 @@ const resetForm = () => {
   Object.assign(suiteForm, {
     name: '',
     description: '',
-    parallel_count: 1,
+    max_concurrent_tasks: 1,
     timeout: 300,
     status: 'active'
   })
@@ -538,62 +538,43 @@ const resetForm = () => {
   }
 }
 
-const loadSuiteDetails = async (suiteId) => {
-  // 模拟加载套件详情
-  testCases.value = [
-    {
-      id: '1',
-      name: '用户注册功能测试',
-      level: 'P1',
-      module_name: '用户管理'
-    },
-    {
-      id: '2',
-      name: '用户登录功能测试',
-      level: 'P0',
-      module_name: '用户管理'
-    }
-  ]
+const handleScriptsSelected = async (selectedScripts) => {
+  if (!selectedSuite.value) return
   
-  scripts.value = [
-    {
-      id: '1',
-      name: '用户注册自动化脚本',
-      script_type: 'UI',
-      status: 'active'
-    },
-    {
-      id: '2',
-      name: '用户登录API测试',
-      script_type: 'API',
-      status: 'active'
+  try {
+    const scriptIds = selectedScripts.map(script => script.id)
+    const response = await addScriptsToSuite(selectedSuite.value.id, projectId.value, scriptIds)
+    
+    if (response.status === 200) {
+      // 后端已经通过request拦截器显示了成功消息，这里不再重复显示
+      // 重新加载套件详情
+      await viewSuite(selectedSuite.value)
+    } else {
+      // 错误消息也已经通过request拦截器显示了，这里只处理业务逻辑
+      console.error('添加失败:', response.message)
     }
-  ]
-}
-
-const handleTestCasesSelected = (selectedCases) => {
-  testCases.value = selectedCases
-  ElMessage.success('测试用例添加成功')
-}
-
-const handleScriptsSelected = (selectedScripts) => {
-  scripts.value = selectedScripts
-  ElMessage.success('脚本添加成功')
-}
-
-const removeTestCase = (testCase) => {
-  const index = testCases.value.findIndex(tc => tc.id === testCase.id)
-  if (index > -1) {
-    testCases.value.splice(index, 1)
-    ElMessage.success('测试用例移除成功')
+  } catch (error) {
+    console.error('添加脚本失败:', error)
+    ElMessage.error('添加脚本失败')
   }
 }
 
-const removeScript = (script) => {
-  const index = scripts.value.findIndex(s => s.id === script.id)
-  if (index > -1) {
-    scripts.value.splice(index, 1)
-    ElMessage.success('脚本移除成功')
+const removeScript = async (script) => {
+  if (!selectedSuite.value) return
+  
+  try {
+    const response = await removeScriptFromSuite(selectedSuite.value.id, projectId.value, script.id)
+    if (response.status === 200) {
+      // 后端已经通过request拦截器显示了成功消息，这里不再重复显示
+      // 重新加载套件详情
+      await viewSuite(selectedSuite.value)
+    } else {
+      // 错误消息也已经通过request拦截器显示了，这里只处理业务逻辑
+      console.error('移除失败:', response.message)
+    }
+  } catch (error) {
+    console.error('移除脚本失败:', error)
+    ElMessage.error('移除脚本失败')
   }
 }
 

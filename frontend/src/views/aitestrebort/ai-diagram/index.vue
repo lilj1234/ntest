@@ -3,10 +3,6 @@
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="header-left">
-        <el-button @click="goBack" style="margin-right: 16px;">
-          <el-icon><ArrowLeft /></el-icon>
-          返回
-        </el-button>
         <div>
           <h1 class="page-title">AI图表生成</h1>
           <p class="page-description">基于需求文档和知识库，智能生成各种类型的图表</p>

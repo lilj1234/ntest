@@ -1468,7 +1468,8 @@ class RequirementReviewService:
                 document_id=document.id,
                 status='in_progress',
                 reviewer='AI需求评审助手',
-                review_type='direct'
+                review_type='direct',
+                specialized_analyses={}  # 添加默认的空字典
             )
             
             # 更新文档状态
@@ -1538,7 +1539,8 @@ class RequirementReviewService:
                 document_id=document.id,
                 status='in_progress',
                 reviewer='AI需求评审助手',
-                review_type='comprehensive'
+                review_type='comprehensive',
+                specialized_analyses={}  # 添加默认的空字典
             )
             
             # 更新文档状态

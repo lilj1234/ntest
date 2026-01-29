@@ -2,10 +2,6 @@
   <div class="requirement-retrieval">
     <el-card class="page-header">
       <div class="header-content">
-        <el-button @click="goBack" style="margin-right: 16px;">
-          <el-icon><ArrowLeft /></el-icon>
-          返回
-        </el-button>
         <div>
           <h2>智能需求检索</h2>
           <p>基于知识库的需求文档检索和上下文感知生成系统</p>

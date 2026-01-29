@@ -147,6 +147,19 @@ class aitestrebortTestSuite(BaseModel):
         default=1,
         description="最大并发数"
     )
+    timeout = fields.IntField(
+        default=300,
+        description="超时时间(秒)"
+    )
+    status = fields.CharField(
+        max_length=20,
+        default="active",
+        description="状态: active/inactive"
+    )
+    last_execution = fields.DatetimeField(
+        null=True,
+        description="最后执行时间"
+    )
     
     class Meta:
         table = "aitestrebort_testsuite"
@@ -157,24 +170,18 @@ class aitestrebortTestSuite(BaseModel):
         return f"{self.project.name} - {self.name}"
 
 
-class aitestrebortTestSuiteCase(BaseModel):
-    """测试套件用例关联表"""
+class aitestrebortTestSuiteScript(BaseModel):
+    """测试套件脚本关联表 - 关联生成的Playwright脚本"""
     
-    suite = fields.ForeignKeyField(
-        "test_platform.aitestrebortTestSuite",
-        related_name="suite_cases",
-        description="测试套件"
-    )
-    testcase = fields.ForeignKeyField(
-        "test_platform.aitestrebortTestCase",
-        related_name="case_suites",
-        description="测试用例"
-    )
+    suite_id = fields.IntField(description="测试套件ID")
+    script_id = fields.IntField(description="脚本ID")
+    execution_order = fields.IntField(default=0, description="执行顺序")
+    create_user = fields.IntField(default=1, description="创建用户ID")
+    update_user = fields.IntField(default=1, description="更新用户ID")
     
     class Meta:
-        table = "aitestrebort_testsuite_case"
-        table_description = "aitestrebort 测试套件用例关联表"
-        unique_together = (("suite", "testcase"),)
+        table = "aitestrebort_testsuite_script"
+        table_description = "aitestrebort 测试套件脚本关联表"
 
 
 class aitestrebortTestExecution(BaseModel):
@@ -249,7 +256,7 @@ class aitestrebortTestCaseResult(BaseModel):
     mcp_session_id = fields.CharField(max_length=255, null=True, description="MCP会话ID")
     
     # 截图信息(JSON格式存储截图路径列表)
-    screenshots = fields.JSONField(default=list, description="截图列表")
+    screenshots = fields.JSONField(null=True, description="截图列表")
     
     # 执行日志
     execution_log = fields.TextField(null=True, description="执行日志")

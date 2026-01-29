@@ -22,6 +22,7 @@ router.add_get_route("/projects/{project_id}", project_service.get_project_detai
 router.add_put_route("/projects/{project_id}", project_service.update_project, summary="更新项目")
 router.add_delete_route("/projects/{project_id}", project_service.delete_project, summary="删除项目")
 router.add_get_route("/projects/{project_id}/statistics", project_service.get_project_statistics, summary="获取项目统计信息")
+router.add_get_route("/projects/{project_id}/activity", project_service.get_project_activity, summary="获取项目最近活动")
 
 # 项目凭据管理路由
 router.add_get_route("/projects/{project_id}/credentials", project_service.get_project_credentials, summary="获取项目凭据列表")

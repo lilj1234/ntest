@@ -2,10 +2,6 @@
   <div class="quality-assessment">
     <el-card class="page-header">
       <div class="header-content">
-        <el-button @click="goBack" style="margin-right: 16px;">
-          <el-icon><ArrowLeft /></el-icon>
-          返回
-        </el-button>
         <div>
           <h2>质量评估系统</h2>
           <p>基于多维度指标对测试用例、需求文档等内容进行智能质量评估</p>
